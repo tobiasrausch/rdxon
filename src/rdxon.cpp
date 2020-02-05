@@ -30,6 +30,7 @@
 
 #include "version.h"
 #include "util.h"
+#include "kmer.h"
 
 
 using namespace rdxon;
@@ -89,12 +90,15 @@ rdxonRun(TConfigStruct const& c) {
     }
     
     // Output hash table
+    std::vector<uint32_t> kmerFreqDist(RDXON_KMER_MAXFREQ, 0);
     now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Process hash map." << std::endl;;
     uint32_t filterKmerMin = 0;
     uint32_t filterKmerMax = 0;
     uint32_t passKmer = 0;
     for(typename THashMap::iterator it = hp.begin(); it != hp.end(); ++it) {
+      if (it->second < RDXON_KMER_MAXFREQ) ++kmerFreqDist[it->second];
+      else ++kmerFreqDist[RDXON_KMER_MAXFREQ - 1];
       if (it->second < c.minOccur) ++filterKmerMin;
       else if (it->second > c.maxOccur) ++filterKmerMax;
       else {
@@ -105,6 +109,10 @@ rdxonRun(TConfigStruct const& c) {
     std::cout << "Filtered k-mers (<min): " << filterKmerMin << std::endl;
     std::cout << "Filtered k-mers (>max): " << filterKmerMax << std::endl;
     std::cout << "Passed hashed k-mers: " << passKmer << std::endl;
+    std::cout << "Rare k-mer distribution (^RKD)" << std::endl;
+    for(uint32_t i = 0; i < RDXON_KMER_MAXFREQ; ++i) {
+      std::cout << "RKD\t" << i << "\t" << kmerFreqDist[i] << std::endl;
+    }
   }
 
   // Filter for the rare
