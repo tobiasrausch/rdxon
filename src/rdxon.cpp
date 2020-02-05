@@ -2,6 +2,7 @@
 #define _SCL_SECURE_NO_WARNINGS
 #include <iostream>
 #include <fstream>
+#include <vector>
 
 #define BOOST_DISABLE_ASSERTS
 
@@ -15,20 +16,26 @@
 #include <boost/program_options/variables_map.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
+#include <boost/iostreams/device/file.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+#include <boost/tokenizer.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/progress.hpp>
-
+#include <boost/dynamic_bitset.hpp>
 
 #include "version.h"
+#include "util.h"
 
 
 using namespace rdxon;
 
 // Config arguments
 struct Config {
-  uint16_t minMapQual;
+  uint16_t minFreq;
   boost::filesystem::path outfile;
   boost::filesystem::path kmerdb;
   boost::filesystem::path infile;
@@ -37,18 +44,30 @@ struct Config {
 
 template<typename TConfigStruct>
 inline int32_t
-rdxonRun(TConfigStruct& c) {
+rdxonRun(TConfigStruct const& c) {
 #ifdef PROFILE
   ProfilerStart("delly.prof");
 #endif
-  
+
+  // DB
+  typedef boost::dynamic_bitset<> TBitSet;
+  TBitSet bitH1(4294967296, false);
+  TBitSet bitH2(4294967296, false);
+  if (!_loadKmerDB(c, bitH1, bitH2)) {
+    std::cerr << "Couldn't parse k-mer DB!" << std::endl;
+    return 1;
+  }
+
+  // Fastq
+  boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+  std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ parsing." << std::endl;;  
   
 #ifdef PROFILE
   ProfilerStop();
 #endif
   
   // End
-  boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+  now = boost::posix_time::second_clock::local_time();
   std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Done." << std::endl;;
   return 0;
 }
@@ -62,7 +81,7 @@ int main(int argc, char **argv) {
   boost::program_options::options_description generic("Generic options");
   generic.add_options()
     ("help,?", "show help message")
-    ("map-qual,q", boost::program_options::value<uint16_t>(&c.minMapQual)->default_value(1), "min. paired-end (PE) mapping quality")
+    ("frequency,f", boost::program_options::value<uint16_t>(&c.minFreq)->default_value(1), "min. k-mer frequency in DB")
     ("kmerdb,k", boost::program_options::value<boost::filesystem::path>(&c.kmerdb), "k-mer database")
     ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile), "output file")
     ;
