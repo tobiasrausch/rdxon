@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <bitset>
 
 #define BOOST_DISABLE_ASSERTS
 
@@ -51,10 +52,17 @@ rdxonRun(TConfigStruct const& c) {
   ProfilerStart("delly.prof");
 #endif
 
-  // DB
   typedef boost::dynamic_bitset<> TBitSet;
-  TBitSet bitH1(4294967296, false);
-  TBitSet bitH2(4294967296, false);
+  TBitSet bitH1(RDXON_MAX_HASH, false);
+  TBitSet bitH2(RDXON_MAX_HASH, false);
+  //std::bitset<RDXON_MAX_HASH> bitH1;
+  //std::bitset<RDXON_MAX_HASH> bitH2;
+  if (!_flagSingletons(c, bitH1, bitH2)) {
+    std::cerr << "Couldn't parse FASTQ file!" << std::endl;
+    return 1;
+  }    
+
+  // DB parsing
   if (!_loadKmerDB(c, bitH1, bitH2)) {
     std::cerr << "Couldn't parse k-mer DB!" << std::endl;
     return 1;
