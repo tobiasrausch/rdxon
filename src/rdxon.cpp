@@ -38,6 +38,7 @@ using namespace rdxon;
 // Config arguments
 struct Config {
   uint16_t minFreq;
+  uint16_t minQual;
   uint16_t minOccur;
   uint16_t maxOccur;
   uint16_t kmerLength;
@@ -61,33 +62,38 @@ rdxonRun(TConfigStruct const& c) {
   typedef std::set<THashPair> THashSet;
   THashSet hs;
 
-  {
+  // Bitmask for filtering
+  typedef boost::dynamic_bitset<> TBitSet;
+  TBitSet bitH1(RDXON_MAX_HASH, false);
+  TBitSet bitH2(RDXON_MAX_HASH, false);
+
+  // Fill hash set
+  if (hs.empty()) {
     // K-mer map
     typedef std::map<THashPair, uint32_t> THashMap;
     THashMap hp;  
 
-    {
-      // Bitmask for filtering
-      typedef boost::dynamic_bitset<> TBitSet;
-      TBitSet bitH1(RDXON_MAX_HASH, false);
-      TBitSet bitH2(RDXON_MAX_HASH, false);
-      if (!_flagSingletons(c, bitH1, bitH2)) {
-	std::cerr << "Couldn't parse FASTQ file!" << std::endl;
-	return 1;
-      }    
-      
-      // DB parsing
-      if (!_loadKmerDB(c, bitH1, bitH2)) {
-	std::cerr << "Couldn't parse k-mer DB!" << std::endl;
-	return 1;
-      }
-      
-      // Fastq counting step
-      if (!_countMissingKmer(c, bitH1, bitH2, hp)) {
-	std::cerr << "Couldn't parse FASTQ file!" << std::endl;
-	return 1;
-      }
+    // Flag singletons
+    if (!_flagSingletons(c, bitH1, bitH2)) {
+      std::cerr << "Couldn't parse FASTQ file!" << std::endl;
+      return 1;
+    }    
+    
+    // DB parsing
+    if (!_loadKmerDB(c, bitH1, bitH2)) {
+      std::cerr << "Couldn't parse k-mer DB!" << std::endl;
+      return 1;
     }
+    
+    // Fastq counting step
+    if (!_countMissingKmer(c, bitH1, bitH2, hp)) {
+      std::cerr << "Couldn't parse FASTQ file!" << std::endl;
+      return 1;
+    }
+
+    // Clean bit arrays
+    for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH1[i] = false;
+    for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH2[i] = false;
     
     // Process hash table
     std::vector<uint32_t> kmerFreqDist(RDXON_KMER_MAXFREQ, 0);
@@ -103,6 +109,8 @@ rdxonRun(TConfigStruct const& c) {
       else if (it->second > c.maxOccur) ++filterKmerMax;
       else {
 	hs.insert(it->first);
+	bitH1[it->first.first] = true;
+	bitH2[it->first.second] = true;
 	++passKmer;
       }
     }
@@ -116,7 +124,7 @@ rdxonRun(TConfigStruct const& c) {
   }
 
   // Filter for the rare
-  if (!_filterForTheRare(c, hs)) {
+  if (!_filterForTheRare(c, bitH1, bitH2, hs)) {
     std::cerr << "Couldn't parse FASTQ file!" << std::endl;
     return 1;
   }  
@@ -142,8 +150,9 @@ int main(int argc, char **argv) {
     ("help,?", "show help message")
     ("kmer,k", boost::program_options::value<uint16_t>(&c.kmerLength)->default_value(61), "k-mer length")
     ("frequency,f", boost::program_options::value<uint16_t>(&c.minFreq)->default_value(1), "min. k-mer frequency in DB")
+    ("quality,q", boost::program_options::value<uint16_t>(&c.minQual)->default_value(30), "min. avg. base quality of k-mer")
     ("recurrence,r", boost::program_options::value<uint16_t>(&c.minOccur)->default_value(3), "min. k-mer recurrence in FASTQ")
-    ("maxrecur,s", boost::program_options::value<uint16_t>(&c.maxOccur)->default_value(100), "max. k-mer recurrence in FASTQ")
+    ("maxrecur,s", boost::program_options::value<uint16_t>(&c.maxOccur)->default_value(500), "max. k-mer recurrence in FASTQ")
     ("database,d", boost::program_options::value<boost::filesystem::path>(&c.kmerdb), "k-mer database")
     ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("out.fq.gz"), "output file")
     ;

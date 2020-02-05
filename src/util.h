@@ -36,6 +36,13 @@ namespace rdxon
       }
     }
   }
+
+  inline uint16_t
+  avgQual(std::string const& s) {
+    uint32_t aq = 0;
+    for(uint32_t i = 0; i < s.size(); ++i) aq += (int32_t) s[i];
+    return (uint16_t) ((aq / s.size()) - 33);
+  }
   
   inline bool
   nContent(std::string const& s) {

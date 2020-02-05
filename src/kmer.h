@@ -83,13 +83,14 @@ namespace rdxon
     uint64_t lcount = 0;
     while(std::getline(instream, gline)) {
       if (lcount % 4 == 1) seq = gline;
-      else if (lcount % 4 == 3) {
+      else if ((lcount % 4 == 3) && (avgQual(gline) >= c.minQual)) {
 	std::string rcseq(seq);
 	reverseComplement(rcseq);
 	uint32_t seqlen = seq.size();
 	for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
-	  if (nContent(seq.substr(pos, c.kmerLength))) continue;
-	  unsigned h1 = hash_string(seq.substr(pos, c.kmerLength).c_str());
+	  std::string kmerStr = seq.substr(pos, c.kmerLength);
+	  if ((nContent(kmerStr)) || (avgQual(kmerStr) < c.minQual)) continue;
+	  unsigned h1 = hash_string(kmerStr.c_str());
 	  unsigned h2 = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
 	  if (h1 > h2) {
 	    unsigned tmp = h1;
@@ -160,14 +161,15 @@ namespace rdxon
     uint32_t passCount = 0;
     while(std::getline(instream, gline)) {
       if (lcount % 4 == 1) seq = gline;
-      else if (lcount % 4 == 3) {
+      else if ((lcount % 4 == 3) && (avgQual(gline) >= c.minQual)) {
 	std::string rcseq(seq);
 	reverseComplement(rcseq);
 	uint32_t seqlen = seq.size();
 	bool filterSeq = true;
 	for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
-	  if (nContent(seq.substr(pos, c.kmerLength))) continue;
-	  unsigned h1 = hash_string(seq.substr(pos, c.kmerLength).c_str());
+	  std::string kmerStr = seq.substr(pos, c.kmerLength);
+	  if ((nContent(kmerStr)) || (avgQual(kmerStr) < c.minQual)) continue;
+	  unsigned h1 = hash_string(kmerStr.c_str());
 	  unsigned h2 = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
 	  if (h1 > h2) {
 	    unsigned tmp = h1;
@@ -202,9 +204,9 @@ namespace rdxon
     return true;
   }
 
-  template<typename TConfigStruct, typename THashSet>
+  template<typename TConfigStruct, typename TBitSet, typename THashSet>
   inline bool
-  _filterForTheRare(TConfigStruct const& c, THashSet const& hs) {
+  _filterForTheRare(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ filtering." << std::endl;;
 
@@ -229,21 +231,22 @@ namespace rdxon
       if (lcount % 4 == 0) header = gline;
       else if (lcount % 4 == 1) seq = gline;
       else if (lcount % 4 == 2) {} // Skip the spacing line
-      else if (lcount % 4 == 3) {
+      else if ((lcount % 4 == 3) && (avgQual(gline) >= c.minQual)) {
 	std::string rcseq(seq);
 	reverseComplement(rcseq);
 	uint32_t seqlen = seq.size();
 	bool filterSeq = true;
 	for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
-	  if (nContent(seq.substr(pos, c.kmerLength))) continue;
-	  unsigned h1 = hash_string(seq.substr(pos, c.kmerLength).c_str());
+	  std::string kmerStr = seq.substr(pos, c.kmerLength);
+	  if ((nContent(kmerStr)) || (avgQual(kmerStr) < c.minQual)) continue;
+	  unsigned h1 = hash_string(kmerStr.c_str());
 	  unsigned h2 = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
 	  if (h1 > h2) {
 	    unsigned tmp = h1;
 	    h1 = h2;
 	    h2 = tmp;
 	  }
-	  if (hs.find(std::make_pair(h1, h2)) != hs.end()) filterSeq = false;
+	  if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) filterSeq = false;
 	}
 	if (filterSeq) ++filterCount;
 	else {
