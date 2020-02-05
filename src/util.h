@@ -14,7 +14,7 @@ namespace rdxon
   #endif
 
   #ifndef RDXON_CHUNK_SIZE
-  #define RDXON_CHUNK_SIZE 10000000
+  #define RDXON_CHUNK_SIZE 1000000
   #endif
 
   inline void
@@ -85,7 +85,7 @@ namespace rdxon
 	  now = boost::posix_time::second_clock::local_time();
 	  std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << lcount << " records." << std::endl;
 	}
-	//if (lcount > RDXON_CHUNK_SIZE) break;
+	if (lcount > RDXON_CHUNK_SIZE) break;
       }
     }
     dataIn.pop();
@@ -152,7 +152,7 @@ namespace rdxon
 	now = boost::posix_time::second_clock::local_time();
 	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
       }
-      //if (lcount > RDXON_CHUNK_SIZE) break;
+      if (lcount > RDXON_CHUNK_SIZE) break;
     }
     now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
@@ -216,7 +216,7 @@ namespace rdxon
 	    h1 = h2;
 	    h2 = tmp;
 	  }
-	  if ((!bitH1[h1]) && (!bitH2[h2])) {
+	  if ((!bitH1[h1]) || (!bitH2[h2])) {
 	    filterSeq = false;
 	    typename TMissingKmers::iterator it = hp.find(std::make_pair(h1, h2));
 	    if (it == hp.end()) hp.insert(std::make_pair(std::make_pair(h1, h2), 1));
@@ -231,7 +231,7 @@ namespace rdxon
 	now = boost::posix_time::second_clock::local_time();
 	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
       }
-      //if (lcount > RDXON_CHUNK_SIZE) break;
+      if (lcount > RDXON_CHUNK_SIZE) break;
     }
     now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;

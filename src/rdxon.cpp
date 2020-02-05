@@ -38,6 +38,7 @@ using namespace rdxon;
 struct Config {
   uint16_t minFreq;
   uint16_t minOccur;
+  uint16_t maxOccur;
   uint16_t kmerLength;
   boost::filesystem::path outfile;
   boost::filesystem::path kmerdb;
@@ -52,40 +53,63 @@ rdxonRun(TConfigStruct const& c) {
   ProfilerStart("delly.prof");
 #endif
 
-  typedef boost::dynamic_bitset<> TBitSet;
-  TBitSet bitH1(RDXON_MAX_HASH, false);
-  TBitSet bitH2(RDXON_MAX_HASH, false);
-  //std::bitset<RDXON_MAX_HASH> bitH1;
-  //std::bitset<RDXON_MAX_HASH> bitH2;
-  if (!_flagSingletons(c, bitH1, bitH2)) {
-    std::cerr << "Couldn't parse FASTQ file!" << std::endl;
-    return 1;
-  }    
-
-  // DB parsing
-  if (!_loadKmerDB(c, bitH1, bitH2)) {
-    std::cerr << "Couldn't parse k-mer DB!" << std::endl;
-    return 1;
-  }
-
-  // Fastq counting step
+  boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    
+  // K-mer set
   typedef std::pair<uint32_t, uint32_t> THashPair;
-  typedef std::map<THashPair, uint32_t> THashCounter;
-  THashCounter hp;  
-  if (!_countMissingKmer(c, bitH1, bitH2, hp)) {
-    std::cerr << "Couldn't parse FASTQ file!" << std::endl;
-    return 1;
+  typedef std::set<THashPair> THashSet;
+  THashSet hs;
+
+  {
+    // K-mer map
+    typedef std::map<THashPair, uint32_t> THashMap;
+    THashMap hp;  
+
+    {
+      // Bitmask for filtering
+      typedef boost::dynamic_bitset<> TBitSet;
+      TBitSet bitH1(RDXON_MAX_HASH, false);
+      TBitSet bitH2(RDXON_MAX_HASH, false);
+      if (!_flagSingletons(c, bitH1, bitH2)) {
+	std::cerr << "Couldn't parse FASTQ file!" << std::endl;
+	return 1;
+      }    
+      
+      // DB parsing
+      if (!_loadKmerDB(c, bitH1, bitH2)) {
+	std::cerr << "Couldn't parse k-mer DB!" << std::endl;
+	return 1;
+      }
+      
+      // Fastq counting step
+      if (!_countMissingKmer(c, bitH1, bitH2, hp)) {
+	std::cerr << "Couldn't parse FASTQ file!" << std::endl;
+	return 1;
+      }
+    }
+    
+    // Output hash table
+    now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Process hash map." << std::endl;;
+    uint32_t filterKmerMin = 0;
+    uint32_t filterKmerMax = 0;
+    uint32_t passKmer = 0;
+    for(typename THashMap::iterator it = hp.begin(); it != hp.end(); ++it) {
+      if (it->second < c.minOccur) ++filterKmerMin;
+      else if (it->second > c.maxOccur) ++filterKmerMax;
+      else {
+	hs.insert(it->first);
+	++passKmer;
+      }
+    }
+    std::cout << "Filtered k-mers (<min): " << filterKmerMin << std::endl;
+    std::cout << "Filtered k-mers (>max): " << filterKmerMax << std::endl;
+    std::cout << "Passed hashed k-mers: " << passKmer << std::endl;
   }
 
-  // Output hash table
-  uint32_t filterKmer = 0;
-  uint32_t passKmer = 0;
-  for(typename THashCounter::iterator it = hp.begin(); it != hp.end(); ++it) {
-    if (it->second >= c.minOccur) ++passKmer;
-    else ++filterKmer;
-  }
-  std::cout << "Filtered k-mers: " << filterKmer << std::endl;
-  std::cout << "Passed k-mers: " << passKmer << std::endl;
+  // Filter for the rare
+  std::cout << hs.size() << std::endl;
+  
 
   
 #ifdef PROFILE
@@ -93,7 +117,7 @@ rdxonRun(TConfigStruct const& c) {
 #endif
   
   // End
-  boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+  now = boost::posix_time::second_clock::local_time();
   std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Done." << std::endl;;
   return 0;
 }
@@ -110,6 +134,7 @@ int main(int argc, char **argv) {
     ("kmer,k", boost::program_options::value<uint16_t>(&c.kmerLength)->default_value(61), "k-mer length")
     ("frequency,f", boost::program_options::value<uint16_t>(&c.minFreq)->default_value(1), "min. k-mer frequency in DB")
     ("recurrence,r", boost::program_options::value<uint16_t>(&c.minOccur)->default_value(3), "min. k-mer recurrence in FASTQ")
+    ("maxrecur,s", boost::program_options::value<uint16_t>(&c.maxOccur)->default_value(100), "max. k-mer recurrence in FASTQ")
     ("database,d", boost::program_options::value<boost::filesystem::path>(&c.kmerdb), "k-mer database")
     ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile), "output file")
     ;
