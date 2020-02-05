@@ -43,7 +43,7 @@ namespace rdxon
 	  now = boost::posix_time::second_clock::local_time();
 	  std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << lcount << " records." << std::endl;
 	}
-	if (lcount > RDXON_CHUNK_SIZE) break;
+	//if (lcount > RDXON_CHUNK_SIZE) break;
       }
     }
     dataIn.pop();
@@ -111,7 +111,7 @@ namespace rdxon
 	now = boost::posix_time::second_clock::local_time();
 	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
       }
-      if (lcount > RDXON_CHUNK_SIZE) break;
+      //if (lcount > RDXON_CHUNK_SIZE) break;
     }
     now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
@@ -191,7 +191,7 @@ namespace rdxon
 	now = boost::posix_time::second_clock::local_time();
 	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
       }
-      if (lcount > RDXON_CHUNK_SIZE) break;
+      //if (lcount > RDXON_CHUNK_SIZE) break;
     }
     now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
@@ -263,7 +263,7 @@ namespace rdxon
 	now = boost::posix_time::second_clock::local_time();
 	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
       }
-      if (lcount > RDXON_CHUNK_SIZE) break;
+      //if (lcount > RDXON_CHUNK_SIZE) break;
     }
     now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
