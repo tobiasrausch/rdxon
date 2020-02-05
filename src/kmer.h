@@ -193,8 +193,8 @@ namespace rdxon
     }
     now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
-    std::cout << "Filtered reads: " << filterCount << std::endl;
-    std::cout << "Passed reads: " << passCount << std::endl;
+    std::cout << "Filtered reads: " << filterCount << " (" << ((double) filterCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
+    std::cout << "Passed reads: " << passCount << " (" << ((double) passCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
 
     dataIn.pop();
     dataIn.pop();
@@ -202,6 +202,82 @@ namespace rdxon
     return true;
   }
 
+  template<typename TConfigStruct, typename THashSet>
+  inline bool
+  _filterForTheRare(TConfigStruct const& c, THashSet const& hs) {
+    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ filtering." << std::endl;;
+
+    // Data out
+    boost::iostreams::filtering_ostream dataOut;
+    dataOut.push(boost::iostreams::gzip_compressor());
+    dataOut.push(boost::iostreams::file_sink(c.outfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
+
+    // Data in
+    std::ifstream file(c.infile.string().c_str(), std::ios_base::in | std::ios_base::binary);
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> dataIn;
+    dataIn.push(boost::iostreams::gzip_decompressor());
+    dataIn.push(file);
+    std::istream instream(&dataIn);
+    std::string gline;
+    std::string header;
+    std::string seq;
+    uint64_t lcount = 0;
+    uint32_t filterCount = 0;
+    uint32_t passCount = 0;
+    while(std::getline(instream, gline)) {
+      if (lcount % 4 == 0) header = gline;
+      else if (lcount % 4 == 1) seq = gline;
+      else if (lcount % 4 == 2) {} // Skip the spacing line
+      else if (lcount % 4 == 3) {
+	std::string rcseq(seq);
+	reverseComplement(rcseq);
+	uint32_t seqlen = seq.size();
+	bool filterSeq = true;
+	for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
+	  if (nContent(seq.substr(pos, c.kmerLength))) continue;
+	  unsigned h1 = hash_string(seq.substr(pos, c.kmerLength).c_str());
+	  unsigned h2 = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
+	  if (h1 > h2) {
+	    unsigned tmp = h1;
+	    h1 = h2;
+	    h2 = tmp;
+	  }
+	  if (hs.find(std::make_pair(h1, h2)) != hs.end()) filterSeq = false;
+	}
+	if (filterSeq) ++filterCount;
+	else {
+	  ++passCount;
+	  // Output FASTQ
+	  dataOut << header << std::endl;
+	  dataOut << seq << std::endl;
+	  dataOut << "+" << std::endl;
+	  dataOut << gline << std::endl;
+	}
+      }
+      ++lcount;
+      if (lcount % (RDXON_CHUNK_SIZE * 4) == 0) {
+	now = boost::posix_time::second_clock::local_time();
+	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
+      }
+      if (lcount > RDXON_CHUNK_SIZE) break;
+    }
+    now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
+    std::cout << "Filtered reads: " << filterCount << " (" << ((double) filterCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
+    std::cout << "Passed reads: " << passCount << " (" << ((double) passCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
+
+    // Close input
+    dataIn.pop();
+    dataIn.pop();
+    file.close();
+
+    // Close output
+    dataOut.pop();
+    
+    return true;
+  }
+    
 }
 
 #endif

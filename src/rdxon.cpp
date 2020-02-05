@@ -89,7 +89,7 @@ rdxonRun(TConfigStruct const& c) {
       }
     }
     
-    // Output hash table
+    // Process hash table
     std::vector<uint32_t> kmerFreqDist(RDXON_KMER_MAXFREQ, 0);
     now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Process hash map." << std::endl;;
@@ -116,9 +116,10 @@ rdxonRun(TConfigStruct const& c) {
   }
 
   // Filter for the rare
-  std::cout << hs.size() << std::endl;
-  
-
+  if (!_filterForTheRare(c, hs)) {
+    std::cerr << "Couldn't parse FASTQ file!" << std::endl;
+    return 1;
+  }  
   
 #ifdef PROFILE
   ProfilerStop();
@@ -144,7 +145,7 @@ int main(int argc, char **argv) {
     ("recurrence,r", boost::program_options::value<uint16_t>(&c.minOccur)->default_value(3), "min. k-mer recurrence in FASTQ")
     ("maxrecur,s", boost::program_options::value<uint16_t>(&c.maxOccur)->default_value(100), "max. k-mer recurrence in FASTQ")
     ("database,d", boost::program_options::value<boost::filesystem::path>(&c.kmerdb), "k-mer database")
-    ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile), "output file")
+    ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("out.fq.gz"), "output file")
     ;
 
   // Define hidden options

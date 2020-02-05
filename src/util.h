@@ -14,7 +14,7 @@ namespace rdxon
   #endif
 
   #ifndef RDXON_CHUNK_SIZE
-  #define RDXON_CHUNK_SIZE 1000000
+  #define RDXON_CHUNK_SIZE 10000000
   #endif
 
   #ifndef RDXON_KMER_MAXFREQ
