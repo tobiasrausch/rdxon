@@ -30,10 +30,17 @@ namespace rdxon
 	Tokenizer tokens(gline, sep);
 	Tokenizer::iterator tokIter = tokens.begin();
 	if (tokIter != tokens.end()) {
-	  uint32_t kcount = boost::lexical_cast<uint32_t>(*tokIter++);
-	  uint32_t h1 = boost::lexical_cast<uint32_t>(*tokIter++);
-	  uint32_t h2 = boost::lexical_cast<uint32_t>(*tokIter++);
-	  if (kcount >= c.minFreq) {
+	  if (c.minFreq) {
+	    uint32_t kcount = boost::lexical_cast<uint32_t>(*tokIter++);
+	    uint32_t h1 = boost::lexical_cast<uint32_t>(*tokIter++);
+	    uint32_t h2 = boost::lexical_cast<uint32_t>(*tokIter++);
+	    if (kcount >= c.minFreq) {
+	      bitH1[h1] = true;
+	      bitH2[h2] = true;
+	    }
+	  } else {
+	    uint32_t h1 = boost::lexical_cast<uint32_t>(*tokIter++);
+	    uint32_t h2 = boost::lexical_cast<uint32_t>(*tokIter++);
 	    bitH1[h1] = true;
 	    bitH2[h2] = true;
 	  }
