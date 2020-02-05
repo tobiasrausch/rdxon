@@ -36,6 +36,8 @@ using namespace rdxon;
 // Config arguments
 struct Config {
   uint16_t minFreq;
+  uint16_t minOccur;
+  uint16_t kmerLength;
   boost::filesystem::path outfile;
   boost::filesystem::path kmerdb;
   boost::filesystem::path infile;
@@ -58,16 +60,32 @@ rdxonRun(TConfigStruct const& c) {
     return 1;
   }
 
-  // Fastq
-  boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-  std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ parsing." << std::endl;;  
+  // Fastq counting step
+  typedef std::pair<uint32_t, uint32_t> THashPair;
+  typedef std::map<THashPair, uint32_t> THashCounter;
+  THashCounter hp;  
+  if (!_countMissingKmer(c, bitH1, bitH2, hp)) {
+    std::cerr << "Couldn't parse FASTQ file!" << std::endl;
+    return 1;
+  }
+
+  // Output hash table
+  uint32_t filterKmer = 0;
+  uint32_t passKmer = 0;
+  for(typename THashCounter::iterator it = hp.begin(); it != hp.end(); ++it) {
+    if (it->second >= c.minOccur) ++passKmer;
+    else ++filterKmer;
+  }
+  std::cout << "Filtered k-mers: " << filterKmer << std::endl;
+  std::cout << "Passed k-mers: " << passKmer << std::endl;
+
   
 #ifdef PROFILE
   ProfilerStop();
 #endif
   
   // End
-  now = boost::posix_time::second_clock::local_time();
+  boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
   std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Done." << std::endl;;
   return 0;
 }
@@ -81,8 +99,10 @@ int main(int argc, char **argv) {
   boost::program_options::options_description generic("Generic options");
   generic.add_options()
     ("help,?", "show help message")
+    ("kmer,k", boost::program_options::value<uint16_t>(&c.kmerLength)->default_value(61), "k-mer length")
     ("frequency,f", boost::program_options::value<uint16_t>(&c.minFreq)->default_value(1), "min. k-mer frequency in DB")
-    ("kmerdb,k", boost::program_options::value<boost::filesystem::path>(&c.kmerdb), "k-mer database")
+    ("recurrence,r", boost::program_options::value<uint16_t>(&c.minOccur)->default_value(3), "min. k-mer recurrence in FASTQ")
+    ("database,d", boost::program_options::value<boost::filesystem::path>(&c.kmerdb), "k-mer database")
     ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile), "output file")
     ;
 
@@ -106,9 +126,9 @@ int main(int argc, char **argv) {
 
 
   // Check command line arguments
-  if ((vm.count("help")) || (!vm.count("input-file")) || (!vm.count("kmerdb"))) { 
+  if ((vm.count("help")) || (!vm.count("input-file")) || (!vm.count("database"))) { 
     std::cout << std::endl;
-    std::cout << "Usage: " <<  argv[0] << " [OPTIONS] -k <kmer.db> <input.fq.gz>" << std::endl;
+    std::cout << "Usage: " <<  argv[0] << " [OPTIONS] -d <kmer.db> <input.fq.gz>" << std::endl;
     std::cout << visible_options << "\n";
     return 0;
   }

@@ -8,6 +8,22 @@
 
 namespace rdxon
 {
+
+  inline void
+  reverseComplement(std::string& sequence) {
+    std::string rev = boost::to_upper_copy(std::string(sequence.rbegin(), sequence.rend()));
+    std::size_t i = 0;
+    for(std::string::iterator revIt = rev.begin(); revIt != rev.end(); ++revIt, ++i) {
+      switch (*revIt) {
+      case 'A': sequence[i]='T'; break;
+      case 'C': sequence[i]='G'; break;
+      case 'G': sequence[i]='C'; break;
+      case 'T': sequence[i]='A'; break;
+      case 'N': sequence[i]='N'; break;
+      default: break;
+      }
+    }
+  }
   
   inline bool
   nContent(std::string const& s) {
@@ -61,15 +77,74 @@ namespace rdxon
 	  now = boost::posix_time::second_clock::local_time();
 	  std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << lcount << " records." << std::endl;
 	}
-	if (lcount > 10000) break;
+	//if (lcount > 10000000) break;
       }
     }
+    dataIn.pop();
+    dataIn.pop();
+    file.close();
     
     return true;
   }
 
 
-  
+  template<typename TConfigStruct, typename TBitSet, typename TMissingKmers>
+  inline bool
+  _countMissingKmer(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, TMissingKmers& hp) {
+    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ parsing." << std::endl;;  
+    std::ifstream file(c.infile.string().c_str(), std::ios_base::in | std::ios_base::binary);
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> dataIn;
+    dataIn.push(boost::iostreams::gzip_decompressor());
+    dataIn.push(file);
+    std::istream instream(&dataIn);
+    std::string gline;
+    std::string seq;
+    uint64_t lcount = 0;
+    uint32_t filterCount = 0;
+    uint32_t passCount = 0;
+    while(std::getline(instream, gline)) {
+      if (lcount % 4 == 1) seq = gline;
+      else if (lcount % 4 == 3) {
+	std::string rcseq(seq);
+	reverseComplement(rcseq);
+	uint32_t seqlen = seq.size();
+	bool filterSeq = true;
+	for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
+	  if (nContent(seq.substr(pos, c.kmerLength))) continue;
+	  unsigned h1 = hash_string(seq.substr(pos, c.kmerLength).c_str());
+	  unsigned h2 = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
+	  if (h1 > h2) {
+	    unsigned tmp = h1;
+	    h1 = h2;
+	    h2 = tmp;
+	  }
+	  if ((!bitH1[h1]) && (!bitH2[h2])) {
+	    filterSeq = false;
+	    typename TMissingKmers::iterator it = hp.find(std::make_pair(h1, h2));
+	    if (it == hp.end()) hp.insert(std::make_pair(std::make_pair(h1, h2), 1));
+	    else ++it->second;
+	  }
+	}
+	if (filterSeq) ++filterCount;
+	else ++passCount;
+      }
+      ++lcount;
+      if (lcount % 10000000 == 0) {
+	now = boost::posix_time::second_clock::local_time();
+	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << lcount << " reads." << std::endl;
+      }
+      //if (lcount > 10000000) break;
+    }
+    std::cout << "Filtered reads: " << filterCount << std::endl;
+    std::cout << "Passed reads: " << passCount << std::endl;
+
+    dataIn.pop();
+    dataIn.pop();
+    file.close();
+    return true;
+  }
+
 }
 
 #endif
