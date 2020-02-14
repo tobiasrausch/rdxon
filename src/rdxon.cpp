@@ -28,6 +28,12 @@
 #include <boost/progress.hpp>
 #include <boost/dynamic_bitset.hpp>
 
+#include <boost/dynamic_bitset/serialization.hpp>
+#include <boost/serialization/bitset.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+
+
 #include "version.h"
 #include "util.h"
 #include "kmer.h"
@@ -42,8 +48,11 @@ struct Config {
   uint16_t minOccur;
   uint16_t maxOccur;
   uint16_t kmerLength;
+  bool hasKmerTable;
   boost::filesystem::path outfile;
   boost::filesystem::path kmerdb;
+  boost::filesystem::path kmerX;
+  boost::filesystem::path kmerY;
   boost::filesystem::path infile;
 };
 
@@ -66,26 +75,43 @@ rdxonRun(TConfigStruct const& c) {
   typedef boost::dynamic_bitset<> TBitSet;
   TBitSet bitH1(RDXON_MAX_HASH, false);
   TBitSet bitH2(RDXON_MAX_HASH, false);
-
+  //std::bitset<RDXON_MAX_HASH>& bitH1 = *(new std::bitset<RDXON_MAX_HASH>());
+  //std::bitset<RDXON_MAX_HASH>& bitH2 = *(new std::bitset<RDXON_MAX_HASH>());
+  
   // Fill hash set
   if (hs.empty()) {
     // K-mer map
     typedef std::map<THashPair, uint32_t> THashMap;
     THashMap hp;  
 
-    // Flag singletons
-    if (!_flagSingletons(c, bitH1, bitH2)) {
-      std::cerr << "Couldn't parse FASTQ file!" << std::endl;
-      return 1;
-    }    
-    
     // DB parsing
-    if (!_loadKmerDB(c, bitH1, bitH2)) {
-      std::cerr << "Couldn't parse k-mer DB!" << std::endl;
-      return 1;
+    if (c.hasKmerTable) {
+      if (!_loadKmerDB(c, bitH1, bitH2)) {
+	std::cerr << "Couldn't parse k-mer DB!" << std::endl;
+	return 1;
+      }
+      // Save DB
+      //std::ofstream outf1("kmer.x.map", std::ios::binary);
+      //boost::archive::binary_oarchive outar1(outf1);
+      //outar1 << bitH1;
+      //outf1.close();
+      //std::ofstream outf2("kmer.y.map", std::ios::binary);
+      //boost::archive::binary_oarchive outar2(outf2);
+      //outar2 << bitH2;
+      //outf2.close();
+    } else {
+      // Load k-mer DB
+      std::ifstream inf1(c.kmerX.string().c_str(), std::ios::binary);
+      boost::archive::binary_iarchive inar1(inf1);
+      inar1 >> bitH1;
+      inf1.close();
+      std::ifstream inf2(c.kmerY.string().c_str(), std::ios::binary);
+      boost::archive::binary_iarchive inar2(inf2);
+      inar2 >> bitH2;
+      inf2.close();
     }
     
-    // Fastq counting step
+    // Count k-mers not in DB
     if (!_countMissingKmer(c, bitH1, bitH2, hp)) {
       std::cerr << "Couldn't parse FASTQ file!" << std::endl;
       return 1;
@@ -149,11 +175,11 @@ int main(int argc, char **argv) {
   generic.add_options()
     ("help,?", "show help message")
     ("kmer,k", boost::program_options::value<uint16_t>(&c.kmerLength)->default_value(61), "k-mer length")
-    ("frequency,f", boost::program_options::value<uint16_t>(&c.minFreq)->default_value(1), "min. k-mer frequency in DB [0: two-column input]")
     ("quality,q", boost::program_options::value<uint16_t>(&c.minQual)->default_value(30), "min. avg. base quality of k-mer")
     ("recurrence,r", boost::program_options::value<uint16_t>(&c.minOccur)->default_value(3), "min. k-mer recurrence in FASTQ")
     ("maxrecur,s", boost::program_options::value<uint16_t>(&c.maxOccur)->default_value(500), "max. k-mer recurrence in FASTQ")
-    ("database,d", boost::program_options::value<boost::filesystem::path>(&c.kmerdb), "k-mer database")
+    ("kmerX,x", boost::program_options::value<boost::filesystem::path>(&c.kmerX), "k-mer.x map file")
+    ("kmerY,y", boost::program_options::value<boost::filesystem::path>(&c.kmerY), "k-mer.y map file")
     ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("out.fq.gz"), "output file")
     ;
 
@@ -161,6 +187,8 @@ int main(int argc, char **argv) {
   boost::program_options::options_description hidden("Hidden options");
   hidden.add_options()
     ("input-file", boost::program_options::value<boost::filesystem::path>(&c.infile), "input file")
+    ("frequency,f", boost::program_options::value<uint16_t>(&c.minFreq)->default_value(1), "min. k-mer frequency in DB [0: two-column input]")
+    ("database,d", boost::program_options::value<boost::filesystem::path>(&c.kmerdb), "k-mer database")
     ;
 
   boost::program_options::positional_options_description pos_args;
@@ -175,11 +203,20 @@ int main(int argc, char **argv) {
   boost::program_options::store(boost::program_options::command_line_parser(argc, argv).options(cmdline_options).positional(pos_args).run(), vm);
   boost::program_options::notify(vm);
 
+  // Tabular k-mer file
+  if (vm.count("database")) c.hasKmerTable = true;
+  else c.hasKmerTable = false;
 
   // Check command line arguments
-  if ((vm.count("help")) || (!vm.count("input-file")) || (!vm.count("database"))) { 
+  bool showHelp = false;
+  if (c.hasKmerTable) {
+    if ((vm.count("help")) || (!vm.count("input-file")) || (!vm.count("database"))) showHelp = true;
+  } else {
+    if ((vm.count("help")) || (!vm.count("input-file")) || (!vm.count("kmerX")) || (!vm.count("kmerY"))) showHelp = true;
+  }
+  if (showHelp) {
     std::cout << std::endl;
-    std::cout << "Usage: " <<  argv[0] << " [OPTIONS] -d <kmer.db> <input.fq.gz>" << std::endl;
+    std::cout << "Usage: " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> <input.fq.gz>" << std::endl;
     std::cout << visible_options << "\n";
     return 0;
   }
