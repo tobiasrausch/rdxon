@@ -27,7 +27,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/progress.hpp>
 #include <boost/dynamic_bitset.hpp>
-
 #include <boost/dynamic_bitset/serialization.hpp>
 #include <boost/serialization/bitset.hpp>
 #include <boost/archive/binary_oarchive.hpp>
@@ -143,10 +142,12 @@ rdxonRun(TConfigStruct const& c) {
     std::cout << "Filtered k-mers (<min): " << filterKmerMin << std::endl;
     std::cout << "Filtered k-mers (>max): " << filterKmerMax << std::endl;
     std::cout << "Passed hashed k-mers: " << passKmer << std::endl;
-    std::cout << "Rare k-mer distribution (^RKD)" << std::endl;
-    for(uint32_t i = 0; i < RDXON_KMER_MAXFREQ; ++i) {
-      std::cout << "RKD\t" << i << "\t" << kmerFreqDist[i] << std::endl;
-    }
+
+    // Debug
+    //std::cerr << "Rare k-mer distribution (^RKD)" << std::endl;
+    //for(uint32_t i = 0; i < RDXON_KMER_MAXFREQ; ++i) {
+    //std::cerr << "RKD\t" << i << "\t" << kmerFreqDist[i] << std::endl;
+    //}
   }
 
   // Filter for the rare
