@@ -1,5 +1,6 @@
 # rdxon build script
 
+dist: bionic
 language: cpp
 
 matrix:
