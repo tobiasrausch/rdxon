@@ -209,7 +209,7 @@ namespace rdxon {
     }
     if (showHelp) {
       std::cout << std::endl;
-      std::cout << "Usage: " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> <input.fq.gz>" << std::endl;
+      std::cout << "Usage: rdxon " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> <input.fq.gz>" << std::endl;
       std::cout << visible_options << "\n";
       return 0;
     }
@@ -221,6 +221,7 @@ namespace rdxon {
     // Show cmd
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] ";
+    std::cout << "rdxon ";
     for(int i=0; i<argc; ++i) { std::cout << argv[i] << ' '; }
     std::cout << std::endl;
     
