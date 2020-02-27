@@ -17,7 +17,7 @@ Filter FASTQ files against all 1000 Genomes sequencing data using k-mers. Keep o
 
 # 1000 Genomes k-mer map
 
-Download the 1000 Genomes k-mer maps here: [https://gear.embl.de/data/rdxon/](https://gear.embl.de/data/rdxon/)
+Download the 1000 Genomes k-mer maps here: [http://gear.embl.de/data/rdxon/](http://gear.embl.de/data/rdxon/)
 
 # Running
 
