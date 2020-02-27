@@ -48,11 +48,13 @@ struct Config {
   uint16_t maxOccur;
   uint16_t kmerLength;
   bool hasKmerTable;
+  bool hasDumpFile;
   boost::filesystem::path outfile;
   boost::filesystem::path kmerdb;
   boost::filesystem::path kmerX;
   boost::filesystem::path kmerY;
   boost::filesystem::path infile;
+  boost::filesystem::path dumpfile;
 };
 
 
@@ -175,12 +177,12 @@ int main(int argc, char **argv) {
   boost::program_options::options_description generic("Generic options");
   generic.add_options()
     ("help,?", "show help message")
-    ("kmer,k", boost::program_options::value<uint16_t>(&c.kmerLength)->default_value(61), "k-mer length")
     ("quality,q", boost::program_options::value<uint16_t>(&c.minQual)->default_value(30), "min. avg. base quality of k-mer")
     ("recurrence,r", boost::program_options::value<uint16_t>(&c.minOccur)->default_value(3), "min. k-mer recurrence in FASTQ")
     ("maxrecur,s", boost::program_options::value<uint16_t>(&c.maxOccur)->default_value(500), "max. k-mer recurrence in FASTQ")
     ("kmerX,x", boost::program_options::value<boost::filesystem::path>(&c.kmerX), "k-mer.x map file")
     ("kmerY,y", boost::program_options::value<boost::filesystem::path>(&c.kmerY), "k-mer.y map file")
+    ("dump,u", boost::program_options::value<boost::filesystem::path>(&c.dumpfile), "gzipped output file for rare k-mers (optional)")
     ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("out.fq.gz"), "output file")
     ;
 
@@ -190,6 +192,7 @@ int main(int argc, char **argv) {
     ("input-file", boost::program_options::value<boost::filesystem::path>(&c.infile), "input file")
     ("frequency,f", boost::program_options::value<uint16_t>(&c.minFreq)->default_value(1), "min. k-mer frequency in DB [0: two-column input]")
     ("database,d", boost::program_options::value<boost::filesystem::path>(&c.kmerdb), "k-mer database")
+    ("kmer,k", boost::program_options::value<uint16_t>(&c.kmerLength)->default_value(61), "k-mer length")
     ;
 
   boost::program_options::positional_options_description pos_args;
@@ -221,6 +224,10 @@ int main(int argc, char **argv) {
     std::cout << visible_options << "\n";
     return 0;
   }
+
+  // Dump file
+  if (vm.count("dump")) c.hasDumpFile = true;
+  else c.hasDumpFile = false;
 
   // Show cmd
   boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
