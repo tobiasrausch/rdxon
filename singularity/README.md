@@ -4,4 +4,4 @@ You can build a [rdxon](https://github.com/tobiasrausch/rdxon) singularity conta
 
 Once you have built the container you can run analysis using
 
-`singularity exec rdxon.sif rdxon -x kmer.x.map -y kmer.y.map -o out.fq.gz in.fq.gz`
+`singularity exec rdxon.sif rdxon filter -x kmer.x.map -y kmer.y.map -o out.fq.gz in.fq.gz`

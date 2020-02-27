@@ -23,11 +23,11 @@ Download the 1000 Genomes k-mer maps here: [http://gear.embl.de/data/rdxon/](htt
 
 To filter an input FASTQ file against the 1000 Genomes sequencing data simply run
 
-`./src/rdxon -x kmer.x.map -y kmer.y.map -o <output.fq.gz> <input.fq.gz>`
+`./src/rdxon filter -x kmer.x.map -y kmer.y.map -o <output.fq.gz> <input.fq.gz>`
 
 You can also dump all rare k-mers which are absent in 1000 Genomes to a file
 
-`./src/rdxon -x kmer.x.map -y kmer.y.map -u <kmer.gz> -o <output.fq.gz> <input.fq.gz>`
+`./src/rdxon filter -x kmer.x.map -y kmer.y.map -u <kmer.gz> -o <output.fq.gz> <input.fq.gz>`
 
 # Acknowledgement
 
