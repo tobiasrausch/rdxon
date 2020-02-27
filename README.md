@@ -31,4 +31,4 @@ You can also dump all rare k-mers which are absent in 1000 Genomes to a file
 
 # Acknowledgement
 
-The 1000 Genomes high-coverage data were generated at the New York Genome Center with funds provided by NHGRI Grant 3UM1HG008901-03S1. All cell lines were obtained from the Coriell Institute for Medical Research and from the NIGMS Human Genetic Cell Repository at the Coriell Institute for Medical Research. More information regarding the 1000 Genomes high-coverage data and data reuse is available [here](ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/).
+The 1000 Genomes high-coverage data were generated at the New York Genome Center with funds provided by NHGRI Grant 3UM1HG008901-03S1. All cell lines were obtained from the Coriell Institute for Medical Research and from the NIGMS Human Genetic Cell Repository at the Coriell Institute for Medical Research. More information regarding the 1000 Genomes high-coverage data and data reuse is available here: [http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/).
