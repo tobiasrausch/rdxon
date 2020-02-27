@@ -10,6 +10,10 @@ Filter FASTQ files against all 1000 Genomes sequencing data using k-mers. Keep o
 
 # Installation
 
+rdxon is available as a pre-compiled statically linked binary from [rdxon's github release page](https://github.com/tobiasrausch/rdxon/releases/),
+as a singularity container [SIF file](https://github.com/tobiasrausch/rdxon/releases/)
+or as a minimal [Docker container](https://hub.docker.com/r/trausch/rdxon/).
+
 `git clone --recursive https://github.com/tobiasrausch/rdxon.git`
 
 `cd rdxon/`
