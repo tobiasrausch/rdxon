@@ -34,6 +34,12 @@ You can also dump all rare k-mers which are absent in 1000 Genomes to a file
 
 `./src/rdxon filter -x kmer.x.map -y kmer.y.map -u <kmer.gz> -o <output.fq.gz> <input.fq.gz>`
 
+# Approximate runtime and memory usage
+
+Whole-exome sequencing: ~1 hour and ~4G RAM (single CPU, one job for Read1 and Read2)
+
+Whole-genome sequencing: ~6 hours and ~4G RAM (single CPU, one job for Read1 and Read2)
+
 # Acknowledgement
 
 The 1000 Genomes high-coverage data were generated at the New York Genome Center with funds provided by NHGRI Grant 3UM1HG008901-03S1. All cell lines were obtained from the Coriell Institute for Medical Research and from the NIGMS Human Genetic Cell Repository at the Coriell Institute for Medical Research. More information regarding the 1000 Genomes high-coverage data and data reuse is available here: [http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/).
