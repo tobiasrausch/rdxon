@@ -33,6 +33,8 @@ You can also dump all rare k-mers which are absent in 1000 Genomes to a file
 
 `./src/rdxon filter -x kmer.x.map -y kmer.y.map -u <kmer.gz> -o <output.fq.gz> <input.fq.gz>`
 
+For paired-end data you can run Read1 and Read2 in parallel and then concatenate the output FASTQ files. For downstream analysis, you should always use the output FASTQ file as a single-end dataset.
+
 # Approximate runtime and memory usage
 
 Whole-exome sequencing: ~1 hour and ~4G RAM (single CPU, one job for Read1 and Read2)
