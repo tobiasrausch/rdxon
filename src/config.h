@@ -38,7 +38,7 @@ namespace rdxon {
 
     FilterConfig() {}
     
-    FilterConfig(SomaticConfig const& sc, bool const mode) {
+    FilterConfig(SomaticConfig const& sc, bool const germ) {
       minFreq = sc.minFreq;
       minQual = sc.minQual;      
       kmerLength = sc.kmerLength;
@@ -50,23 +50,23 @@ namespace rdxon {
       kmerY = sc.kmerY;
       dumpfile = sc.dumpfile;
 
-      if (mode == 0) {
+      if (germ) {
 	// Germline
 	minOccur = sc.minControlOccur;
-	if (sc.files.size() == 2) {
-	  files.push_back(sc.files[0]);
-	} else if (sc.files.size() == 4) {
-	  files.push_back(sc.files[0]);
-	  files.push_back(sc.files[1]);
-	}
-      } else {
-	// Tumor
-	minOccur = sc.minOccur;
 	if (sc.files.size() == 2) {
 	  files.push_back(sc.files[1]);
 	} else if (sc.files.size() == 4) {
 	  files.push_back(sc.files[2]);
 	  files.push_back(sc.files[3]);
+	}
+      } else {
+	// Tumor
+	minOccur = sc.minOccur;
+	if (sc.files.size() == 2) {
+	  files.push_back(sc.files[0]);
+	} else if (sc.files.size() == 4) {
+	  files.push_back(sc.files[0]);
+	  files.push_back(sc.files[1]);
 	}
       }
     }

@@ -148,7 +148,7 @@ namespace rdxon
     // Parse FASTQs
     for(uint32_t file_c = 0; file_c < c.files.size(); ++file_c) {
       boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-      std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ parsing." << std::endl;
+      std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ parsing: " << c.files[file_c].string() << std::endl;
       if (!_countMissingKmer(c, c.files[file_c], bitH1, bitH2, singleH1, singleH2, hp)) return false;
     }
     return true;
@@ -198,7 +198,7 @@ namespace rdxon
   inline bool
   _filterForTheRare(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ filtering." << std::endl;;
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ filtering: " << c.outfile.string() << std::endl;;
 
     // Dump file
     boost::iostreams::filtering_ostream dumpOut;

@@ -31,70 +31,87 @@ namespace rdxon {
 
   template<typename TConfigStruct>
   inline int32_t
-    somaticRun(TConfigStruct const& c) {
+  somaticRun(TConfigStruct const& c) {
 #ifdef PROFILE
     ProfilerStart("rdxon.prof");
 #endif
 
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+
+    // K-mer set
+    typedef std::pair<uint32_t, uint32_t> THashPair;
+    typedef std::set<THashPair> THashSet;
+    THashSet hs;
     
     // Bitmask for filtering
     typedef boost::dynamic_bitset<> TBitSet;
     TBitSet bitH1(RDXON_MAX_HASH, false);
     TBitSet bitH2(RDXON_MAX_HASH, false);
 
-    // Germline k-mer map
-    typedef std::pair<uint32_t, uint32_t> THashPair;
-    typedef std::map<THashPair, uint32_t> THashMap;
-    THashMap germHp;
-    FilterConfig germC(c, false);
-    _fillHashMap(c, bitH1, bitH2, germHp); 
+    // Fill hash set
+    if (hs.empty()) {
+      // Germline k-mer map
+      typedef std::map<THashPair, uint32_t> THashMap;
+      THashMap germHp;
+      FilterConfig germC(c, true);
+      _fillHashMap(germC, bitH1, bitH2, germHp); 
       
-    // Clean bit arrays
-    for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH1[i] = false;
-    for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH2[i] = false;
+      // Clean bit arrays
+      for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH1[i] = false;
+      for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH2[i] = false;
 
+      // Somatic k-mer map
+      THashMap somaHp;
+      FilterConfig somaC(c, false);
+      _fillHashMap(somaC, bitH1, bitH2, somaHp); 
+      
+      // Clean bit arrays
+      for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH1[i] = false;
+      for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH2[i] = false;
 
-    /*
       // Process hash table
-      std::vector<uint32_t> kmerFreqDist(RDXON_KMER_MAXFREQ, 0);
       now = boost::posix_time::second_clock::local_time();
       std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Process hash map." << std::endl;;
       uint32_t filterKmerMin = 0;
       uint32_t filterKmerMax = 0;
+      uint32_t filterKmerControl = 0;
       uint32_t passKmer = 0;
-      for(typename THashMap::iterator it = hp.begin(); it != hp.end(); ++it) {
-	if (it->second < RDXON_KMER_MAXFREQ) ++kmerFreqDist[it->second];
-	else ++kmerFreqDist[RDXON_KMER_MAXFREQ - 1];
+      for(typename THashMap::iterator it = somaHp.begin(); it != somaHp.end(); ++it) {
 	if (it->second < c.minOccur) ++filterKmerMin;
 	else if (it->second > c.maxOccur) ++filterKmerMax;
 	else {
-	  hs.insert(it->first);
-	  bitH1[it->first.first] = true;
-	  bitH2[it->first.second] = true;
-	  ++passKmer;
+	  // Check germline
+	  bool somaticKmer = true;
+	  typename THashMap::iterator git = germHp.find(it->first);
+	  if (git != germHp.end()) {
+	    if (git->second < c.minControlOccur) {
+	      ++filterKmerControl;
+	      somaticKmer = false;
+	    }
+	  }
+	  if (somaticKmer) {
+	    hs.insert(it->first);
+	    bitH1[it->first.first] = true;
+	    bitH2[it->first.second] = true;
+	    ++passKmer;
+	  }
 	}
       }
       std::cout << "Filtered k-mers (<min): " << filterKmerMin << std::endl;
       std::cout << "Filtered k-mers (>max): " << filterKmerMax << std::endl;
-      std::cout << "Passed hashed k-mers: " << passKmer << std::endl;
-      
-      // Debug
-      //std::cerr << "Rare k-mer distribution (^RKD)" << std::endl;
-      //for(uint32_t i = 0; i < RDXON_KMER_MAXFREQ; ++i) {
-      //std::cerr << "RKD\t" << i << "\t" << kmerFreqDist[i] << std::endl;
-      //}
+      std::cout << "Filtered control k-mers: " << filterKmerControl << std::endl;
+      std::cout << "Passed hashed k-mers: " << passKmer << std::endl;      
     }
     
-    // Filter for the rare
+    // Filter rare somatic k-mers
+    FilterConfig somaC(c, false);
     bool filterRet = false;
-    if (c.files.size() == 1) filterRet = _filterForTheRare(c, bitH1, bitH2, hs);
-    else filterRet = _filterForTheRarePE(c, bitH1, bitH2, hs);
+    if (somaC.files.size() == 1) filterRet = _filterForTheRare(somaC, bitH1, bitH2, hs);
+    else filterRet = _filterForTheRarePE(somaC, bitH1, bitH2, hs);
     if (!filterRet) {
       std::cerr << "Couldn't parse FASTQ files!" << std::endl;
       return 1;
     }
-    */
 
 #ifdef PROFILE
     ProfilerStop();
@@ -177,7 +194,7 @@ namespace rdxon {
 	return 1;
       }
     }
-    if ((c.files.size() != 2) && (c.files.size()==4)) {
+    if ((c.files.size() != 2) && (c.files.size() != 4)) {
       std::cerr << "Please specify only 2 FASTQ files (single-end mode, tumor-normal) or 4 FASTQ files (paired-end mode, tumor-normal)!" << std::endl;
       return 1;
     }
