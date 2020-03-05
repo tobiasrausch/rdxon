@@ -70,17 +70,11 @@ namespace rdxon
 
   template<typename TConfigStruct, typename TBitSet, typename TMissingKmers>
   inline bool
-  _countMissingKmer(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, TMissingKmers& hp) {
+  _countMissingKmer(TConfigStruct const& c, boost::filesystem::path const& infile, TBitSet const& bitH1, TBitSet const& bitH2, TBitSet& singleH1, TBitSet& singleH2, TMissingKmers& hp) {
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ parsing." << std::endl;;  
-    std::ifstream file(c.infile.string().c_str(), std::ios_base::in | std::ios_base::binary);
 
-    // Singleton masks
-    TBitSet singleH1(RDXON_MAX_HASH, false);
-    TBitSet singleH2(RDXON_MAX_HASH, false);
-    //std::bitset<RDXON_MAX_HASH>& singleH1 = *(new std::bitset<RDXON_MAX_HASH>());
-    //std::bitset<RDXON_MAX_HASH>& singleH2 = *(new std::bitset<RDXON_MAX_HASH>());
-    
+    // Open file
+    std::ifstream file(infile.string().c_str(), std::ios_base::in | std::ios_base::binary);
     boost::iostreams::filtering_streambuf<boost::iostreams::input> dataIn;
     dataIn.push(boost::iostreams::gzip_decompressor());
     dataIn.push(file);
@@ -142,6 +136,24 @@ namespace rdxon
     file.close();
     return true;
   }
+  
+  template<typename TConfigStruct, typename TBitSet, typename TMissingKmers>
+  inline bool
+  _countMissingKmer(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, TMissingKmers& hp) {
+    // Singleton masks
+    TBitSet singleH1(RDXON_MAX_HASH, false);
+    TBitSet singleH2(RDXON_MAX_HASH, false);
+    //std::bitset<RDXON_MAX_HASH>& singleH1 = *(new std::bitset<RDXON_MAX_HASH>());
+    //std::bitset<RDXON_MAX_HASH>& singleH2 = *(new std::bitset<RDXON_MAX_HASH>());
+
+    // Parse FASTQs
+    for(uint32_t file_c = 0; file_c < c.files.size(); ++file_c) {
+      boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+      std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ parsing." << std::endl;
+      if (!_countMissingKmer(c, c.files[file_c], bitH1, bitH2, singleH1, singleH2, hp)) return false;
+    }
+    return true;
+  }
 
   template<typename TConfigStruct, typename TBitSet, typename THashSet>
   inline bool
@@ -162,7 +174,7 @@ namespace rdxon
     dataOut.push(boost::iostreams::file_sink(c.outfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
 
     // Data in
-    std::ifstream file(c.infile.string().c_str(), std::ios_base::in | std::ios_base::binary);
+    std::ifstream file(c.files[0].string().c_str(), std::ios_base::in | std::ios_base::binary);
     boost::iostreams::filtering_streambuf<boost::iostreams::input> dataIn;
     dataIn.push(boost::iostreams::gzip_decompressor());
     dataIn.push(file);
@@ -239,7 +251,165 @@ namespace rdxon
     }
     return true;
   }
+
+  template<typename TConfigStruct, typename TBitSet, typename THashSet>
+  inline bool
+  _filterForTheRarePE(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
+    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Paired-end FASTQ filtering." << std::endl;;
+
+    // Dump file
+    boost::iostreams::filtering_ostream dumpOut;
+    if (c.hasDumpFile) {
+      dumpOut.push(boost::iostreams::gzip_compressor());
+      dumpOut.push(boost::iostreams::file_sink(c.dumpfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
+    }
     
+    // Data out
+    boost::filesystem::path fq1 = c.outfile.string() + ".1.fq.gz";
+    boost::iostreams::filtering_ostream dataOut1;
+    dataOut1.push(boost::iostreams::gzip_compressor());
+    dataOut1.push(boost::iostreams::file_sink(fq1.string().c_str(), std::ios_base::out | std::ios_base::binary));
+    boost::filesystem::path fq2 = c.outfile.string() + ".2.fq.gz";
+    boost::iostreams::filtering_ostream dataOut2;
+    dataOut2.push(boost::iostreams::gzip_compressor());
+    dataOut2.push(boost::iostreams::file_sink(fq2.string().c_str(), std::ios_base::out | std::ios_base::binary));
+
+    // Data in
+    std::ifstream file1(c.files[0].string().c_str(), std::ios_base::in | std::ios_base::binary);
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> dataIn1;
+    dataIn1.push(boost::iostreams::gzip_decompressor());
+    dataIn1.push(file1);
+    std::ifstream file2(c.files[1].string().c_str(), std::ios_base::in | std::ios_base::binary);
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> dataIn2;
+    dataIn2.push(boost::iostreams::gzip_decompressor());
+    dataIn2.push(file2);
+
+    // Streams
+    std::istream instream1(&dataIn1);
+    std::istream instream2(&dataIn2);
+    std::string gline1;
+    std::string header1;
+    std::string seq1;
+    std::string gline2;
+    std::string header2;
+    std::string seq2;
+    uint64_t lcount = 0;
+    uint32_t filterCount = 0;
+    uint32_t passCount = 0;
+    while(true) {
+      bool getLine1 = std::getline(instream1, gline1);
+      bool getLine2 = std::getline(instream2, gline2);
+      if ((!getLine1) || (!getLine2)) break;
+      if (lcount % 4 == 0) {
+	header1 = gline1;
+	header2 = gline2;
+      } else if (lcount % 4 == 1) {
+	seq1 = gline1;
+	seq2 = gline2;
+      }
+      else if (lcount % 4 == 2) {} // Skip the spacing line
+      else if (lcount % 4 == 3) {
+	bool filterSeq = true;
+	// Read1
+	if (avgQual(gline1) >= c.minQual) {
+	  std::string rcseq(seq1);
+	  reverseComplement(rcseq);
+	  uint32_t seqlen = seq1.size();
+	  for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
+	    std::string kmerStr = seq1.substr(pos, c.kmerLength);
+	    if ((nContent(kmerStr)) || (avgQual(kmerStr) < c.minQual)) continue;
+	    unsigned h1Raw = hash_string(kmerStr.c_str());
+	    unsigned h2Raw = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
+	    unsigned h1 = h1Raw;
+	    unsigned h2 = h2Raw;
+	    if (h1 > h2) {
+	      h1 = h2Raw;
+	      h2 = h1Raw;
+	    }
+	    if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
+	      filterSeq = false;
+	      if (c.hasDumpFile) {
+		if (h1Raw < h2Raw) dumpOut << kmerStr.c_str() << std::endl;
+		else dumpOut << rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength) << std::endl;
+	      }
+	    }
+	  }
+	}
+	// Read2
+	if (avgQual(gline2) >= c.minQual) {
+	  std::string rcseq(seq2);
+	  reverseComplement(rcseq);
+	  uint32_t seqlen = seq2.size();
+	  for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
+	    std::string kmerStr = seq2.substr(pos, c.kmerLength);
+	    if ((nContent(kmerStr)) || (avgQual(kmerStr) < c.minQual)) continue;
+	    unsigned h1Raw = hash_string(kmerStr.c_str());
+	    unsigned h2Raw = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
+	    unsigned h1 = h1Raw;
+	    unsigned h2 = h2Raw;
+	    if (h1 > h2) {
+	      h1 = h2Raw;
+	      h2 = h1Raw;
+	    }
+	    if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
+	      filterSeq = false;
+	      if (c.hasDumpFile) {
+		if (h1Raw < h2Raw) dumpOut << kmerStr.c_str() << std::endl;
+		else dumpOut << rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength) << std::endl;
+	      }
+	    }
+	  }
+	}
+	if (filterSeq) ++filterCount;
+	else {
+	  ++passCount;
+	  // Output FASTQs
+	  dataOut1 << header1 << std::endl;
+	  dataOut1 << seq1 << std::endl;
+	  dataOut1 << "+" << std::endl;
+	  dataOut1 << gline1 << std::endl;
+	  dataOut2 << header2 << std::endl;
+	  dataOut2 << seq2 << std::endl;
+	  dataOut2 << "+" << std::endl;
+	  dataOut2 << gline2 << std::endl;
+	}
+      }
+      ++lcount;
+      if (lcount % (RDXON_CHUNK_SIZE * 4) == 0) {
+	now = boost::posix_time::second_clock::local_time();
+	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " read pairs." << std::endl;
+      }
+      //if (lcount > RDXON_CHUNK_SIZE) break;
+    }
+    now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " read pairs." << std::endl;
+    std::cout << "Filtered pairs: " << filterCount << " (" << ((double) filterCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
+    std::cout << "Passed pairs: " << passCount << " (" << ((double) passCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
+    
+    // Close input
+    dataIn1.pop();
+    dataIn1.pop();
+    file1.close();
+    dataIn2.pop();
+    dataIn2.pop();
+    file2.close();
+
+    // Close output
+    dataOut1.pop();
+    dataOut1.pop();
+    dataOut2.pop();
+    dataOut2.pop();
+
+    // Close dump file
+    if (c.hasDumpFile) {
+      dumpOut.pop();
+      dumpOut.pop();
+    }
+    return true;
+  }
+
+
 }
 
 #endif

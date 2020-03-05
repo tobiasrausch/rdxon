@@ -42,7 +42,7 @@ namespace rdxon {
     boost::filesystem::path kmerdb;
     boost::filesystem::path kmerX;
     boost::filesystem::path kmerY;
-    boost::filesystem::path infile;
+    std::vector<boost::filesystem::path> files;
     boost::filesystem::path dumpfile;
   };
 
@@ -103,7 +103,7 @@ namespace rdxon {
       
       // Count k-mers not in DB
       if (!_countMissingKmer(c, bitH1, bitH2, hp)) {
-	std::cerr << "Couldn't parse FASTQ file!" << std::endl;
+	std::cerr << "Couldn't parse input FASTQ files!" << std::endl;
 	return 1;
       }
       
@@ -142,10 +142,13 @@ namespace rdxon {
     }
     
     // Filter for the rare
-    if (!_filterForTheRare(c, bitH1, bitH2, hs)) {
-      std::cerr << "Couldn't parse FASTQ file!" << std::endl;
+    bool filterRet = false;
+    if (c.files.size() == 1) filterRet = _filterForTheRare(c, bitH1, bitH2, hs);
+    else filterRet = _filterForTheRarePE(c, bitH1, bitH2, hs);
+    if (!filterRet) {
+      std::cerr << "Couldn't parse FASTQ files!" << std::endl;
       return 1;
-    }  
+    }
     
 #ifdef PROFILE
     ProfilerStop();
@@ -178,7 +181,7 @@ namespace rdxon {
     // Define hidden options
     boost::program_options::options_description hidden("Hidden options");
     hidden.add_options()
-      ("input-file", boost::program_options::value<boost::filesystem::path>(&c.infile), "input file")
+      ("input-file", boost::program_options::value< std::vector<boost::filesystem::path> >(&c.files), "input file")
       ("frequency,f", boost::program_options::value<uint16_t>(&c.minFreq)->default_value(1), "min. k-mer frequency in DB [0: two-column input]")
       ("database,d", boost::program_options::value<boost::filesystem::path>(&c.kmerdb), "k-mer database")
       ("kmer,k", boost::program_options::value<uint16_t>(&c.kmerLength)->default_value(61), "k-mer length")
@@ -209,7 +212,9 @@ namespace rdxon {
     }
     if (showHelp) {
       std::cout << std::endl;
-      std::cout << "Usage: rdxon " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> <input.fq.gz>" << std::endl;
+      std::cout << "Usage:" << std::endl;
+      std::cout << " Single-end mode: rdxon " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> <input.fq.gz>" << std::endl;
+      std::cout << " Paired-end mode: rdxon " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> -o <outprefix> <read1.fq.gz> <read2.fq.gz>" << std::endl;
       std::cout << visible_options << "\n";
       return 0;
     }
@@ -217,6 +222,18 @@ namespace rdxon {
     // Dump file
     if (vm.count("dump")) c.hasDumpFile = true;
     else c.hasDumpFile = false;
+
+    // Check input files
+    for(uint32_t file_c = 0; file_c < c.files.size(); ++file_c) {
+      if (!(boost::filesystem::exists(c.files[file_c]) && boost::filesystem::is_regular_file(c.files[file_c]) && boost::filesystem::file_size(c.files[file_c]))) {
+	std::cerr << "FASTQ file is missing: " << c.files[file_c].string() << std::endl;
+	return 1;
+      }
+    }
+    if (c.files.size() > 2) {
+      std::cerr << "Please specify only 1 FASTQ file (single-end mode) or 2 FASTQ files (paired-end mode)!" << std::endl;
+      return 1;
+    }
     
     // Show cmd
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();

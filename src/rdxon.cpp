@@ -21,7 +21,7 @@ displayUsage() {
   std::cout << std::endl;
   std::cout << "Commands:" << std::endl;
   std::cout << std::endl;
-  std::cout << "    filter       filter FASTQ file" << std::endl;
+  std::cout << "    filter       filter FASTQ files" << std::endl;
   std::cout << std::endl;
   std::cout << std::endl;
 }
