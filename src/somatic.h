@@ -1,5 +1,5 @@
-#ifndef FILTER_H
-#define FILTER_H
+#ifndef SOMATIC_H
+#define SOMATIC_H
 
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
@@ -31,38 +31,31 @@ namespace rdxon {
 
   template<typename TConfigStruct>
   inline int32_t
-    rdxonRun(TConfigStruct const& c) {
+    somaticRun(TConfigStruct const& c) {
 #ifdef PROFILE
     ProfilerStart("rdxon.prof");
 #endif
 
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
     
-    // K-mer set
-    typedef std::pair<uint32_t, uint32_t> THashPair;
-    typedef std::set<THashPair> THashSet;
-    THashSet hs;
-    
     // Bitmask for filtering
     typedef boost::dynamic_bitset<> TBitSet;
     TBitSet bitH1(RDXON_MAX_HASH, false);
     TBitSet bitH2(RDXON_MAX_HASH, false);
-    //std::bitset<RDXON_MAX_HASH>& bitH1 = *(new std::bitset<RDXON_MAX_HASH>());
-    //std::bitset<RDXON_MAX_HASH>& bitH2 = *(new std::bitset<RDXON_MAX_HASH>());
-    
-    // Fill hash set
-    if (hs.empty()) {
-      // K-mer map
-      typedef std::map<THashPair, uint32_t> THashMap;
-      THashMap hp;
-      
-      // Fill hash-map
-      if (!_fillHashMap(c, bitH1, bitH2, hp)) return 1;
 
-      // Clean bit arrays
-      for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH1[i] = false;
-      for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH2[i] = false;
-    
+    // Germline k-mer map
+    typedef std::pair<uint32_t, uint32_t> THashPair;
+    typedef std::map<THashPair, uint32_t> THashMap;
+    THashMap germHp;
+    FilterConfig germC(c, false);
+    _fillHashMap(c, bitH1, bitH2, germHp); 
+      
+    // Clean bit arrays
+    for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH1[i] = false;
+    for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH2[i] = false;
+
+
+    /*
       // Process hash table
       std::vector<uint32_t> kmerFreqDist(RDXON_KMER_MAXFREQ, 0);
       now = boost::posix_time::second_clock::local_time();
@@ -101,7 +94,8 @@ namespace rdxon {
       std::cerr << "Couldn't parse FASTQ files!" << std::endl;
       return 1;
     }
-    
+    */
+
 #ifdef PROFILE
     ProfilerStop();
 #endif
@@ -113,8 +107,8 @@ namespace rdxon {
   }
 
 
-  int filter(int argc, char **argv) {
-    FilterConfig c;
+  int somatic(int argc, char **argv) {
+    SomaticConfig c;
 
     // Define generic options
     std::string svtype;
@@ -122,8 +116,9 @@ namespace rdxon {
     generic.add_options()
       ("help,?", "show help message")
       ("quality,q", boost::program_options::value<uint16_t>(&c.minQual)->default_value(30), "min. avg. base quality of k-mer")
-      ("recurrence,r", boost::program_options::value<uint16_t>(&c.minOccur)->default_value(3), "min. k-mer recurrence in FASTQ")
-      ("maxrecur,s", boost::program_options::value<uint16_t>(&c.maxOccur)->default_value(500), "max. k-mer recurrence in FASTQ")
+      ("recurrence,r", boost::program_options::value<uint16_t>(&c.minOccur)->default_value(3), "min. k-mer recurrence in tumor FASTQ")
+      ("maxrecur,s", boost::program_options::value<uint16_t>(&c.maxOccur)->default_value(500), "max. k-mer recurrence in tumor FASTQ")
+      ("ctrecurrence,t", boost::program_options::value<uint16_t>(&c.minControlOccur)->default_value(2), "min. k-mer recurrence in control FASTQ")
       ("kmerX,x", boost::program_options::value<boost::filesystem::path>(&c.kmerX), "k-mer.x map file")
       ("kmerY,y", boost::program_options::value<boost::filesystem::path>(&c.kmerY), "k-mer.y map file")
       ("dump,u", boost::program_options::value<boost::filesystem::path>(&c.dumpfile), "gzipped output file for rare k-mers (optional)")
@@ -165,8 +160,8 @@ namespace rdxon {
     if (showHelp) {
       std::cout << std::endl;
       std::cout << "Usage:" << std::endl;
-      std::cout << " Single-end mode: rdxon " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> <input.fq.gz>" << std::endl;
-      std::cout << " Paired-end mode: rdxon " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> -o <outprefix> <read1.fq.gz> <read2.fq.gz>" << std::endl;
+      std::cout << " Single-end mode: rdxon " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> <tumor.fq.gz> <control.fq.gz>" << std::endl;
+      std::cout << " Paired-end mode: rdxon " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> -o <outprefix> <tumor.1.fq.gz> <tumor.2.fq.gz> <control.1.fq.gz> <control.2.fq.gz>" << std::endl;
       std::cout << visible_options << "\n";
       return 0;
     }
@@ -182,8 +177,8 @@ namespace rdxon {
 	return 1;
       }
     }
-    if (c.files.size() > 2) {
-      std::cerr << "Please specify only 1 FASTQ file (single-end mode) or 2 FASTQ files (paired-end mode)!" << std::endl;
+    if ((c.files.size() != 2) && (c.files.size()==4)) {
+      std::cerr << "Please specify only 2 FASTQ files (single-end mode, tumor-normal) or 4 FASTQ files (paired-end mode, tumor-normal)!" << std::endl;
       return 1;
     }
     
@@ -194,7 +189,7 @@ namespace rdxon {
     for(int i=0; i<argc; ++i) { std::cout << argv[i] << ' '; }
     std::cout << std::endl;
     
-    return rdxonRun(c);
+    return somaticRun(c);
   }
 
 }

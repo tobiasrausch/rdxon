@@ -11,6 +11,7 @@
 
 #include "version.h"
 #include "filter.h"
+#include "somatic.h"
 
 using namespace rdxon;
 
@@ -21,7 +22,8 @@ displayUsage() {
   std::cout << std::endl;
   std::cout << "Commands:" << std::endl;
   std::cout << std::endl;
-  std::cout << "    filter       filter FASTQ files" << std::endl;
+  std::cout << "    filter       filter FASTQ files for rare k-mers" << std::endl;
+  std::cout << "    somatic      filter FASTQ files for rare and somatic k-mers" << std::endl;
   std::cout << std::endl;
   std::cout << std::endl;
 }
@@ -52,7 +54,11 @@ int main(int argc, char **argv) {
   }
   else if ((std::string(argv[1]) == "filter")) {
     return filter(argc-1,argv+1);
-  } else {
+  }
+  else if ((std::string(argv[1]) == "somatic")) {
+    return somatic(argc-1,argv+1);
+  }
+  else {
     std::cerr << "Unrecognized command " << std::string(argv[1]) << std::endl;
     return 1;
   }

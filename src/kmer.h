@@ -67,7 +67,6 @@ namespace rdxon
     return true;
   }
 
-
   template<typename TConfigStruct, typename TBitSet, typename TMissingKmers>
   inline bool
   _countMissingKmer(TConfigStruct const& c, boost::filesystem::path const& infile, TBitSet const& bitH1, TBitSet const& bitH2, TBitSet& singleH1, TBitSet& singleH2, TMissingKmers& hp) {
@@ -155,6 +154,46 @@ namespace rdxon
     return true;
   }
 
+
+  template<typename TConfigStruct, typename TBitSet, typename THashMap>
+  inline bool
+  _fillHashMap(TConfigStruct const& c, TBitSet& bitH1, TBitSet& bitH2, THashMap& hp) {
+    // DB parsing
+    if (c.hasKmerTable) {
+      if (!_loadKmerDB(c, bitH1, bitH2)) {
+	std::cerr << "Couldn't parse k-mer DB!" << std::endl;
+	return false;
+      }
+      // Save DB
+      //std::ofstream outf1("kmer.x.map", std::ios::binary);
+      //boost::archive::binary_oarchive outar1(outf1);
+      //outar1 << bitH1;
+      //outf1.close();
+      //std::ofstream outf2("kmer.y.map", std::ios::binary);
+      //boost::archive::binary_oarchive outar2(outf2);
+      //outar2 << bitH2;
+      //outf2.close();
+    } else {
+      // Load k-mer DB
+      std::ifstream inf1(c.kmerX.string().c_str(), std::ios::binary);
+      boost::archive::binary_iarchive inar1(inf1);
+      inar1 >> bitH1;
+      inf1.close();
+      std::ifstream inf2(c.kmerY.string().c_str(), std::ios::binary);
+      boost::archive::binary_iarchive inar2(inf2);
+      inar2 >> bitH2;
+      inf2.close();
+    }
+    
+    // Count k-mers not in DB
+    if (!_countMissingKmer(c, bitH1, bitH2, hp)) {
+      std::cerr << "Couldn't parse input FASTQ files!" << std::endl;
+      return false;
+    }
+    return true;
+  }
+    
+  
   template<typename TConfigStruct, typename TBitSet, typename THashSet>
   inline bool
   _filterForTheRare(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
