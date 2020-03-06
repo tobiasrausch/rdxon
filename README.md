@@ -37,7 +37,7 @@ For paired-end data you can run Read1 and Read2 in parallel and then concatenate
 
 # Paired-end mode
 
-For certain downstream applications, you may want to retain proper paired-ends.
+For certain downstream applications you may want to retain proper paired-ends. The paired-end mode of the filter subcommand is:
 
 `rdxon filter -x kmer.x.map -y kmer.y.map -o <outprefix> <read1.fq.gz> <read2.fq.gz>`
 
