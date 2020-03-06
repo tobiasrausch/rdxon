@@ -27,15 +27,31 @@ Download the 1000 Genomes k-mer maps here: [http://gear.embl.de/data/rdxon/](htt
 
 To filter an input FASTQ file against the 1000 Genomes sequencing data simply run
 
-`./src/rdxon filter -x kmer.x.map -y kmer.y.map -o <output.fq.gz> <input.fq.gz>`
+`rdxon filter -x kmer.x.map -y kmer.y.map -o <output.fq.gz> <input.fq.gz>`
 
 You can also dump all rare k-mers which are absent in 1000 Genomes to a file
 
-`./src/rdxon filter -x kmer.x.map -y kmer.y.map -u <kmer.gz> -o <output.fq.gz> <input.fq.gz>`
+`rdxon filter -x kmer.x.map -y kmer.y.map -u <kmer.gz> -o <output.fq.gz> <input.fq.gz>`
 
-For paired-end data you can run Read1 and Read2 in parallel and then concatenate the output FASTQ files. For downstream analysis, you should always use the output FASTQ file as a single-end dataset.
+For paired-end data you can run Read1 and Read2 in parallel and then concatenate the output FASTQ files.
 
-# Approximate runtime and memory usage
+# Paired-end mode
+
+For certain downstream applications, you may want to retain proper paired-ends.
+
+`rdxon filter -x kmer.x.map -y kmer.y.map -o <outprefix> <read1.fq.gz> <read2.fq.gz>`
+
+# Rare and somatic k-mers
+
+For tumor-normal sequencing in cancer genomics, you can also filter for reads that contain rare and somatic k-mers.
+
+`rdxon somatic -x kmer.x.map -y kmer.y.map -o <output.fq.gz> <tumor.fq.gz> <control.fq.gz>`
+
+The somatic subcommand is also available in paired-end mode.
+
+`rdxon somatic -x kmer.x.map -y kmer.y.map -o <outprefix> <tumor.1.fq.gz> <tumor.2.fq.gz> <control.1.fq.gz> <control.2.fq.gz>`
+
+# Approximate runtime and memory usage for filtering reads containing rare k-mers
 
 Whole-exome sequencing: ~1 hour and ~4G RAM (single CPU, one job for Read1 and Read2)
 
