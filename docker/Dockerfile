@@ -5,12 +5,14 @@ MAINTAINER Tobias Rausch rausch@embl.de
 
 # install packages
 RUN apt-get update && apt-get install -y \
+    autoconf \
     build-essential \
     cmake \
     g++ \
     gfortran \
     git \
     libcurl4-gnutls-dev \
+    hdf5-tools \
     libboost-date-time-dev \
     libboost-program-options-dev \
     libboost-system-dev \
@@ -18,7 +20,8 @@ RUN apt-get update && apt-get install -y \
     libboost-iostreams-dev \
     libboost-serialization-dev \
     libbz2-dev \
-    libncurses5-dev \
+    libhdf5-dev \
+    libncurses-dev \
     liblzma-dev \
     zlib1g-dev \
     && apt-get clean \

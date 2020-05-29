@@ -12,7 +12,7 @@ bindir ?= $(exec_prefix)/bin
 
 # Flags
 CXX=g++
-CXXFLAGS += -isystem ${EBROOTHTSLIB} -pedantic -W -Wall -D__STDC_LIMIT_MACROS
+CXXFLAGS += -isystem ${EBROOTHTSLIB} -pedantic -W -Wall -Wno-unknown-pragmas -D__STDC_LIMIT_MACROS -fno-strict-aliasing -fpermissive
 LDFLAGS += -L${EBROOTHTSLIB} -L${EBROOTHTSLIB}/lib -lboost_iostreams -lboost_filesystem -lboost_system -lboost_program_options -lboost_date_time -lboost_serialization
 
 # Flags for static compile
@@ -47,7 +47,7 @@ TARGETS = ${SUBMODULES} ${BUILT_PROGRAMS}
 all:   	$(TARGETS)
 
 .htslib: $(HTSLIBSOURCES)
-	if [ -r src/xxsds/install.sh ]; then cd src/xxsds/ && ./install.sh ${PBASE}/src/sdslLite && cd ../../ && touch .sdsl; fi	
+	if [ -r src/htslib/Makefile ]; then cd src/htslib && autoheader && autoconf && ./configure --disable-s3 --disable-gcs --disable-libcurl --disable-plugins && $(MAKE) && $(MAKE) lib-static && cd ../../ && touch .htslib; fi
 
 src/rdxon: ${SUBMODULES} $(SOURCES)
 	$(CXX) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)
