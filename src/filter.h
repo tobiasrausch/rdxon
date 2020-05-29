@@ -95,8 +95,10 @@ namespace rdxon {
     
     // Filter for the rare
     bool filterRet = false;
-    if (c.files.size() == 1) filterRet = _filterForTheRare(c, bitH1, bitH2, hs);
-    else filterRet = _filterForTheRarePE(c, bitH1, bitH2, hs);
+    if (c.files.size() == 1) {
+      if (c.bamInput) filterRet = _filterForTheRareBAM(c, bitH1, bitH2, hs);
+      else filterRet = _filterForTheRare(c, bitH1, bitH2, hs);
+    } else filterRet = _filterForTheRarePE(c, bitH1, bitH2, hs);
     if (!filterRet) {
       std::cerr << "Couldn't parse FASTQ files!" << std::endl;
       return 1;
@@ -126,6 +128,7 @@ namespace rdxon {
       ("maxrecur,s", boost::program_options::value<uint16_t>(&c.maxOccur)->default_value(500), "max. k-mer recurrence in FASTQ")
       ("kmerX,x", boost::program_options::value<boost::filesystem::path>(&c.kmerX), "k-mer.x map file")
       ("kmerY,y", boost::program_options::value<boost::filesystem::path>(&c.kmerY), "k-mer.y map file")
+      ("genome,g", boost::program_options::value<boost::filesystem::path>(&c.genome), "genome fasta file (only required for BAM input")
       ("dump,u", boost::program_options::value<boost::filesystem::path>(&c.dumpfile), "gzipped output file for rare k-mers (optional)")
       ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("out.fq.gz"), "output file")
       ;
@@ -167,6 +170,7 @@ namespace rdxon {
       std::cout << "Usage:" << std::endl;
       std::cout << " Single-end mode: rdxon " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> <input.fq.gz>" << std::endl;
       std::cout << " Paired-end mode: rdxon " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> -o <outprefix> <read1.fq.gz> <read2.fq.gz>" << std::endl;
+      std::cout << " BAM mode (PEs out of sync): rdxon " <<  argv[0] << " [OPTIONS] -g <genome.fa> -x <kmer.x.map> -y <kmer.y.map> -o <outprefix> <input.bam>" << std::endl;
       std::cout << visible_options << "\n";
       return 0;
     }
@@ -176,10 +180,24 @@ namespace rdxon {
     else c.hasDumpFile = false;
 
     // Check input files
+    c.bamInput = false;
     for(uint32_t file_c = 0; file_c < c.files.size(); ++file_c) {
       if (!(boost::filesystem::exists(c.files[file_c]) && boost::filesystem::is_regular_file(c.files[file_c]) && boost::filesystem::file_size(c.files[file_c]))) {
 	std::cerr << "FASTQ file is missing: " << c.files[file_c].string() << std::endl;
 	return 1;
+      } else {
+	int32_t intype = inputType(c.files[file_c].string());
+	if (intype == -1) {
+	  std::cerr << "Unrecognized input file format: " << c.files[file_c].string() << std::endl;
+	  return 1;
+	}
+	if (!intype) {
+	  if (!(boost::filesystem::exists(c.genome) && boost::filesystem::is_regular_file(c.genome) && boost::filesystem::file_size(c.genome))) {
+	    std::cerr << "Reference file is missing: " << c.genome.string() << std::endl;
+	    return 1;
+	  }
+	  c.bamInput = true;
+	}
       }
     }
     if (c.files.size() > 2) {

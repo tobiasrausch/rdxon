@@ -29,10 +29,12 @@ namespace rdxon {
     uint16_t kmerLength;
     bool hasKmerTable;
     bool hasDumpFile;
+    bool bamInput;
     boost::filesystem::path outfile;
     boost::filesystem::path kmerdb;
     boost::filesystem::path kmerX;
     boost::filesystem::path kmerY;
+    boost::filesystem::path genome;
     std::vector<boost::filesystem::path> files;
     boost::filesystem::path dumpfile;
 
