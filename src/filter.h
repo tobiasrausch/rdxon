@@ -170,7 +170,7 @@ namespace rdxon {
       std::cout << "Usage:" << std::endl;
       std::cout << " Single-end mode: rdxon " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> <input.fq.gz>" << std::endl;
       std::cout << " Paired-end mode: rdxon " <<  argv[0] << " [OPTIONS] -x <kmer.x.map> -y <kmer.y.map> -o <outprefix> <read1.fq.gz> <read2.fq.gz>" << std::endl;
-      std::cout << " BAM mode (PEs out of sync): rdxon " <<  argv[0] << " [OPTIONS] -g <genome.fa> -x <kmer.x.map> -y <kmer.y.map> -o <outprefix> <input.bam>" << std::endl;
+      std::cout << " BAM mode: rdxon " <<  argv[0] << " [OPTIONS] -g <genome.fa> -x <kmer.x.map> -y <kmer.y.map> <input.bam>" << std::endl;
       std::cout << visible_options << "\n";
       return 0;
     }

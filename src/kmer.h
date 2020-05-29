@@ -390,14 +390,9 @@ namespace rdxon
     }
 
     // Data out
-    boost::filesystem::path fq1 = c.outfile.string() + ".1.fq.gz";
-    boost::iostreams::filtering_ostream dataOut1;
-    dataOut1.push(boost::iostreams::gzip_compressor());
-    dataOut1.push(boost::iostreams::file_sink(fq1.string().c_str(), std::ios_base::out | std::ios_base::binary));
-    boost::filesystem::path fq2 = c.outfile.string() + ".2.fq.gz";
-    boost::iostreams::filtering_ostream dataOut2;
-    dataOut2.push(boost::iostreams::gzip_compressor());
-    dataOut2.push(boost::iostreams::file_sink(fq2.string().c_str(), std::ios_base::out | std::ios_base::binary));
+    boost::iostreams::filtering_ostream dataOut;
+    dataOut.push(boost::iostreams::gzip_compressor());
+    dataOut.push(boost::iostreams::file_sink(c.outfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
 
     // Data in
     samFile* samfile = sam_open(c.files[0].string().c_str(), "r");
@@ -458,17 +453,17 @@ namespace rdxon
 	    std::reverse(quality.begin(), quality.end());
 	  }
 	  if (rec->core.flag & BAM_FREAD2) {
-	    dataOut2 << "@" << rname << std::endl;
-	    dataOut2 << seq << std::endl;
-	    dataOut2 << "+" << std::endl;
-	    for (int32_t i = 0; i < rec->core.l_qseq; ++i) dataOut2 << boost::lexical_cast<char>((uint8_t) (quality[i] + 33));
-	    dataOut2 << std::endl;
+	    dataOut << "@" << rname << "R2" << std::endl;
+	    dataOut << seq << std::endl;
+	    dataOut << "+" << std::endl;
+	    for (int32_t i = 0; i < rec->core.l_qseq; ++i) dataOut << boost::lexical_cast<char>((uint8_t) (quality[i] + 33));
+	    dataOut << std::endl;
 	  } else {
-	    dataOut1 << "@" << rname << std::endl;
-	    dataOut1 << seq << std::endl;
-	    dataOut1 << "+" << std::endl;
-	    for (int32_t i = 0; i < rec->core.l_qseq; ++i) dataOut1 << boost::lexical_cast<char>((uint8_t) (quality[i] + 33));
-	    dataOut1 << std::endl;
+	    dataOut << "@" << rname << "R1" << std::endl;
+	    dataOut << seq << std::endl;
+	    dataOut << "+" << std::endl;
+	    for (int32_t i = 0; i < rec->core.l_qseq; ++i) dataOut << boost::lexical_cast<char>((uint8_t) (quality[i] + 33));
+	    dataOut << std::endl;
 	  }
 	}
       }
@@ -489,10 +484,8 @@ namespace rdxon
     sam_close(samfile);
 
     // Close output
-    dataOut1.pop();
-    dataOut1.pop();
-    dataOut2.pop();
-    dataOut2.pop();
+    dataOut.pop();
+    dataOut.pop();
 
     // Close dump file
     if (c.hasDumpFile) {
