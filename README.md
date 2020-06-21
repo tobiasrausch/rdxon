@@ -1,3 +1,5 @@
+[![C/C++ CI](https://github.com/tobiasrausch/rdxon/workflows/C/C++%20CI/badge.svg)](https://github.com/tobiasrausch/rdxon/actions)
+[![Docker CI](https://github.com/tobiasrausch/rdxon/workflows/Docker%20CI/badge.svg)](https://hub.docker.com/r/trausch/rdxon/)
 [![Build Status](https://travis-ci.org/tobiasrausch/rdxon.svg?branch=master)](https://travis-ci.org/tobiasrausch/rdxon/)
 [![GitHub license](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/tobiasrausch/rdxon/blob/master/LICENSE)
 [![GitHub Releases](https://img.shields.io/github/release/tobiasrausch/rdxon.svg)](https://github.com/tobiasrausch/rdxon/releases)
