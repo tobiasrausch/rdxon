@@ -5,7 +5,7 @@
 [![GitHub Releases](https://img.shields.io/github/release/tobiasrausch/rdxon.svg)](https://github.com/tobiasrausch/rdxon/releases)
 [![GitHub Issues](https://img.shields.io/github/issues/tobiasrausch/rdxon.svg)](https://github.com/tobiasrausch/rdxon/issues)
 
-# rdxon: FASTQ filtering for rare (somatic) k-mers
+# rdxon: FASTQ filtering for rare (somatic) variants
 
 Filter FASTQ files against all 1000 Genomes sequencing data using k-mers. Keep only reads with k-mers missing in 1000 Genomes.
 
