@@ -43,6 +43,7 @@ namespace rdxon
       if (inputBam) return 0; // Bam
       else if (((uint8_t)fcode[0] == (uint8_t)0x1f) && ((uint8_t)fcode[1] == (uint8_t)0x8b)) return 1; // Gzipped fastq
       else if (fcode[0] == '@') return 2; // Fastq file
+      else if (fcode[0] == '>') return 3; // Fasta file
     }
     return -1;
   }

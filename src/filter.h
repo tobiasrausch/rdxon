@@ -94,14 +94,16 @@ namespace rdxon {
     }
     
     // Filter for the rare
-    bool filterRet = false;
-    if (c.files.size() == 1) {
-      if (c.bamInput) filterRet = _filterForTheRareBAM(c, bitH1, bitH2, hs);
-      else filterRet = _filterForTheRare(c, bitH1, bitH2, hs);
-    } else filterRet = _filterForTheRarePE(c, bitH1, bitH2, hs);
-    if (!filterRet) {
-      std::cerr << "Couldn't parse FASTQ files!" << std::endl;
-      return 1;
+    if (!hs.empty()) {
+      bool filterRet = false;
+      if (c.files.size() == 1) {
+	if (!c.intype) filterRet = _filterForTheRareBAM(c, bitH1, bitH2, hs);
+	else filterRet = _filterForTheRare(c, bitH1, bitH2, hs);
+      } else filterRet = _filterForTheRarePE(c, bitH1, bitH2, hs);
+      if (!filterRet) {
+	std::cerr << "Couldn't parse FASTQ files!" << std::endl;
+	return 1;
+      }
     }
     
 #ifdef PROFILE
@@ -180,23 +182,22 @@ namespace rdxon {
     else c.hasDumpFile = false;
 
     // Check input files
-    c.bamInput = false;
     for(uint32_t file_c = 0; file_c < c.files.size(); ++file_c) {
       if (!(boost::filesystem::exists(c.files[file_c]) && boost::filesystem::is_regular_file(c.files[file_c]) && boost::filesystem::file_size(c.files[file_c]))) {
 	std::cerr << "FASTQ file is missing: " << c.files[file_c].string() << std::endl;
 	return 1;
       } else {
-	int32_t intype = inputType(c.files[file_c].string());
-	if (intype == -1) {
+	c.intype = inputType(c.files[file_c].string());
+	if (c.intype == -1) {
 	  std::cerr << "Unrecognized input file format: " << c.files[file_c].string() << std::endl;
 	  return 1;
 	}
-	if (!intype) {
+	if (!c.intype) {
+	  // BAM input
 	  if (!(boost::filesystem::exists(c.genome) && boost::filesystem::is_regular_file(c.genome) && boost::filesystem::file_size(c.genome))) {
 	    std::cerr << "Reference file is missing: " << c.genome.string() << std::endl;
 	    return 1;
 	  }
-	  c.bamInput = true;
 	}
       }
     }
