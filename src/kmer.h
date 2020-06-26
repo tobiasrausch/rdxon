@@ -338,14 +338,16 @@ namespace rdxon
       //outf2.close();
     } else {
       // Load k-mer DB
-      std::ifstream inf1(c.kmerX.string().c_str(), std::ios::binary);
-      boost::archive::binary_iarchive inar1(inf1);
-      inar1 >> bitH1;
-      inf1.close();
-      std::ifstream inf2(c.kmerY.string().c_str(), std::ios::binary);
-      boost::archive::binary_iarchive inar2(inf2);
-      inar2 >> bitH2;
-      inf2.close();
+      if (!c.empty) {
+	std::ifstream inf1(c.kmerX.string().c_str(), std::ios::binary);
+	boost::archive::binary_iarchive inar1(inf1);
+	inar1 >> bitH1;
+	inf1.close();
+	std::ifstream inf2(c.kmerY.string().c_str(), std::ios::binary);
+	boost::archive::binary_iarchive inar2(inf2);
+	inar2 >> bitH2;
+	inf2.close();
+      }
     }
     
     // Count k-mers not in DB

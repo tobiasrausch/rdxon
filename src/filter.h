@@ -142,6 +142,7 @@ namespace rdxon {
       ("frequency,f", boost::program_options::value<uint16_t>(&c.minFreq)->default_value(1), "min. k-mer frequency in DB [0: two-column input]")
       ("database,d", boost::program_options::value<boost::filesystem::path>(&c.kmerdb), "k-mer database")
       ("kmer,k", boost::program_options::value<uint16_t>(&c.kmerLength)->default_value(61), "k-mer length")
+      ("empty,e", "use empty map, no filtering at all")
       ;
     
     boost::program_options::positional_options_description pos_args;
@@ -159,6 +160,10 @@ namespace rdxon {
     // Tabular k-mer file
     if (vm.count("database")) c.hasKmerTable = true;
     else c.hasKmerTable = false;
+
+    // Empty bit map
+    if (vm.count("empty")) c.empty = true;
+    else c.empty = false;
     
     // Check command line arguments
     bool showHelp = false;
