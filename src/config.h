@@ -29,7 +29,6 @@ namespace rdxon {
     uint16_t kmerLength;
     bool hasKmerTable;
     bool hasDumpFile;
-    bool empty;
     int32_t intype;
     boost::filesystem::path outfile;
     boost::filesystem::path kmerdb;
