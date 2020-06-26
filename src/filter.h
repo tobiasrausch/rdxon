@@ -121,7 +121,6 @@ namespace rdxon {
     FilterConfig c;
 
     // Define generic options
-    std::string svtype;
     boost::program_options::options_description generic("Generic options");
     generic.add_options()
       ("help,?", "show help message")

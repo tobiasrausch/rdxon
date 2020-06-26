@@ -75,6 +75,18 @@ namespace rdxon {
   };
 
 
+  struct FetchConfig {
+    uint16_t kmerLength;
+    int32_t intype;
+    bool hasHashTable;
+    boost::filesystem::path outfile;
+    boost::filesystem::path htable;
+    boost::filesystem::path infile;
+
+    FetchConfig() {}    
+  };
+
+
 }
 
 #endif

@@ -12,6 +12,7 @@
 #include "version.h"
 #include "filter.h"
 #include "somatic.h"
+#include "fetch.h"
 
 using namespace rdxon;
 
@@ -57,6 +58,9 @@ int main(int argc, char **argv) {
   }
   else if ((std::string(argv[1]) == "somatic")) {
     return somatic(argc-1,argv+1);
+  }
+  else if ((std::string(argv[1]) == "fetch")) {
+    return fetch(argc-1,argv+1);
   }
   else {
     std::cerr << "Unrecognized command " << std::string(argv[1]) << std::endl;
