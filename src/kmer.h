@@ -210,8 +210,8 @@ namespace rdxon
     file.close();
     return true;
   }
-
-    template<typename TConfigStruct, typename TBitSet, typename TMissingKmers>
+  
+  template<typename TConfigStruct, typename TBitSet, typename TMissingKmers>
   inline bool
   _countMissingKmerBAM(TConfigStruct const& c, boost::filesystem::path const& infile, TBitSet const& bitH1, TBitSet const& bitH2, TBitSet& singleH1, TBitSet& singleH2, TMissingKmers& hp) {
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
@@ -221,8 +221,6 @@ namespace rdxon
     hts_set_fai_filename(samfile, c.genome.string().c_str());
     bam_hdr_t* hdr = sam_hdr_read(samfile);
     uint64_t lcount = 0;
-    uint32_t filterCount = 0;
-    uint32_t passCount = 0;
 
     // Parse BAM
     bam1_t* rec = bam_init1();
@@ -230,27 +228,27 @@ namespace rdxon
       if (rec->core.flag & (BAM_FSECONDARY | BAM_FQCFAIL | BAM_FDUP | BAM_FSUPPLEMENTARY)) continue;
       
       // Get the read sequence
-      typedef std::vector<uint8_t> TQuality;
-      TQuality quality;
-      quality.resize(rec->core.l_qseq);
-      std::string seq;
-      seq.resize(rec->core.l_qseq);
-      uint8_t* seqptr = bam_get_seq(rec);
       uint8_t* qualptr = bam_get_qual(rec);
-      for (int32_t i = 0; i < rec->core.l_qseq; ++i) {
-	quality[i] = qualptr[i];
-	seq[i] = "=ACMGRSVTWYHKDBN"[bam_seqi(seqptr, i)];
-      }
-      if (avgQual(quality) >= c.minQual) {
-	std::string rcseq(seq);
-	reverseComplement(rcseq);
-	uint32_t seqlen = seq.size();
-	bool filterSeq = true;
-	for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
-	  std::string kmerStr = seq.substr(pos, c.kmerLength);
-	  if (nContent(kmerStr))  continue;
-	  unsigned h1 = hash_string(kmerStr.c_str());
-	  unsigned h2 = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
+      uint32_t aq = 0;
+      for (int32_t i = 0; i < rec->core.l_qseq; ++i) aq += (uint32_t)((uint8_t) qualptr[i]);
+      if ((uint16_t) (aq / rec->core.l_qseq) >= c.minQual) {
+	std::string seq(rec->core.l_qseq, 'N');
+	uint8_t* seqptr = bam_get_seq(rec);
+	for (int32_t i = 0; i < rec->core.l_qseq; ++i) seq[i] = "=ACMGRSVTWYHKDBN"[bam_seqi(seqptr, i)];
+	uint32_t nsum = 0;
+	for (int32_t pos = 0; ((pos < c.kmerLength) && (pos < rec->core.l_qseq)); ++pos) {
+	  if (seq[pos] == 'N') ++nsum;
+	}
+	for (int32_t pos = 0; pos + c.kmerLength <= rec->core.l_qseq; ++pos) {
+	  if (pos) {
+	    if (seq[pos - 1] == 'N') --nsum;
+	    if (seq[pos + c.kmerLength - 1] == 'N') ++nsum;
+	  }
+	  if (nsum) continue;
+	  unsigned h1 = 37;
+	  for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) h1 = (h1 * 54059) ^ (seq[i] * 76963);
+	  unsigned h2 = 37;
+	  for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) h2 = (h2 * 54059) ^ (cpl[(uint8_t) seq[i]] * 76963);
 	  if (h1 > h2) {
 	    unsigned tmp = h1;
 	    h1 = h2;
@@ -264,15 +262,12 @@ namespace rdxon
 	      singleH2[h2] = true;
 	    } else {
 	      // K-mer not a singleton and not in DB
-	      filterSeq = false;
 	      typename TMissingKmers::iterator it = hp.find(std::make_pair(h1, h2));
 	      if (it == hp.end()) hp.insert(std::make_pair(std::make_pair(h1, h2), 2));
 	      else ++it->second;
 	    }
 	  }
 	}
-	if (filterSeq) ++filterCount;
-	else ++passCount;
       }
       ++lcount;
       if (lcount % RDXON_CHUNK_SIZE == 0) {
@@ -282,13 +277,12 @@ namespace rdxon
     }
     now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << lcount << " reads." << std::endl;
-    std::cout << "Filtered reads: " << filterCount << " (" << ((double) filterCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
-    std::cout << "Passed reads: " << passCount << " (" << ((double) passCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
 
     // Clean-up
     bam_destroy1(rec);
     bam_hdr_destroy(hdr);
     sam_close(samfile);
+
     return true;
   }
   

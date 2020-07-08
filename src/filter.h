@@ -1,6 +1,7 @@
 #ifndef FILTER_H
 #define FILTER_H
 
+#include <boost/unordered_map.hpp>
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
@@ -54,6 +55,7 @@ namespace rdxon {
     if (hs.empty()) {
       // K-mer map
       typedef std::map<THashPair, uint32_t> THashMap;
+      //typedef boost::unordered_map<THashPair, uint32_t> THashMap;
       THashMap hp;
       
       // Fill hash-map
