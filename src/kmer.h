@@ -171,15 +171,17 @@ namespace rdxon
       }
       if ((!bitH1[h1]) || (!bitH2[h2])) {
 	// K-mer not in DB
-	if ((!singleH1[h1]) || (!singleH2[h2])) {
+	if (((!singleH1[h1]) || (!singleH2[h2])) && (c.minOccur >= 2)) {
 	  // Potential singleton k-mer due to seq. error
 	  singleH1[h1] = true;
 	  singleH2[h2] = true;
 	} else {
 	  // K-mer not a singleton and not in DB
 	  typename TMissingKmers::iterator it = hp.find(std::make_pair(h1, h2));
-	  if (it == hp.end()) hp.insert(std::make_pair(std::make_pair(h1, h2), 2));
-	  else ++it->second;
+	  if (it == hp.end()) {
+	    if (c.minOccur<2) hp.insert(std::make_pair(std::make_pair(h1, h2), 1));
+	    else hp.insert(std::make_pair(std::make_pair(h1, h2), 2));
+	  } else ++it->second;
 	}
       }
     }
@@ -359,14 +361,16 @@ namespace rdxon
 	  }
 	  if ((!bitH1[h1]) || (!bitH2[h2])) {
 	    // K-mer not in DB
-	    if ((!singleH1[h1]) || (!singleH2[h2])) {
+	    if (((!singleH1[h1]) || (!singleH2[h2])) && (c.minOccur >= 2)) {
 	      // Potential singleton k-mer due to seq. error
 	      singleH1[h1] = true;
 	      singleH2[h2] = true;
 	    } else {
 	      // K-mer not a singleton and not in DB
 	      typename TMissingKmers::iterator it = hp.find(std::make_pair(h1, h2));
-	      if (it == hp.end()) hp.insert(std::make_pair(std::make_pair(h1, h2), 2));
+	      if (it == hp.end())
+		if (c.minOccur < 2) hp.insert(std::make_pair(std::make_pair(h1, h2), 1));
+		else hp.insert(std::make_pair(std::make_pair(h1, h2), 2));
 	      else ++it->second;
 	    }
 	  }
