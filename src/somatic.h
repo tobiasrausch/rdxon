@@ -106,7 +106,7 @@ namespace rdxon {
     // Filter rare somatic k-mers
     FilterConfig somaC(c, false);
     bool filterRet = false;
-    if (somaC.files.size() == 1) filterRet = _filterForTheRare(somaC, bitH1, bitH2, hs);
+    if (somaC.files.size() == 1) filterRet = _filterForTheRareFastqGZ(somaC, bitH1, bitH2, hs);
     else filterRet = _filterForTheRarePE(somaC, bitH1, bitH2, hs);
     if (!filterRet) {
       std::cerr << "Couldn't parse FASTQ files!" << std::endl;

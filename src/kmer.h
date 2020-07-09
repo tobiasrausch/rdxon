@@ -469,13 +469,265 @@ namespace rdxon
     }
     return true;
   }
+
+
+
+  template<typename TConfigStruct, typename TDumpStream, typename TBitSet, typename THashSet>
+  inline bool
+  _spotifyTheRare(TConfigStruct const& c, TDumpStream& dumpOut, std::string const& seq, std::string const& qual, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
+    bool filterSeq = true;
+    int32_t seqlen = seq.size();
+    uint32_t aq = 0;
+    uint32_t nsum = 0;
+    for (int32_t pos = 0; ((pos < c.kmerLength) && (pos < seqlen)); ++pos) {
+      if (seq[pos] == 'N') ++nsum;
+      aq += (uint8_t) qual[pos];
+    }
+    for (int32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
+      if (pos) {
+	if (seq[pos - 1] == 'N') --nsum;
+	if (seq[pos + c.kmerLength - 1] == 'N') ++nsum;
+	aq -= (uint8_t) qual[pos - 1];
+	aq += (uint8_t) qual[pos + c.kmerLength - 1];
+      }
+      if ((uint16_t) (aq /c.kmerLength) < c.minQual + 33) continue;
+      if (nsum) continue;
+      unsigned h1Raw = 37;
+      for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) h1Raw = (h1Raw * 54059) ^ (seq[i] * 76963);
+      unsigned h2Raw = 37;
+      for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) h2Raw = (h2Raw * 54059) ^ (cpl[(uint8_t) seq[i]] * 76963);
+      unsigned h1 = h1Raw;
+      unsigned h2 = h2Raw;
+      if (h1 > h2) {
+	h1 = h2Raw;
+	h2 = h1Raw;
+      }
+      if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
+	filterSeq = false;
+	if (c.hasDumpFile) {
+	  if (h1Raw < h2Raw) {
+	    for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) dumpOut << seq[i];
+	  } else {
+	    for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) dumpOut << cpl[(uint8_t) seq[i]];
+	  }
+	  dumpOut << std::endl;
+	}
+      }
+    }
+    return filterSeq;
+  }
+
+  template<typename TConfigStruct, typename TBitSet, typename THashSet>
+  inline bool
+  _filterForTheRareFasta(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
+    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTA filtering: " << c.files[0].string() << std::endl;
+
+    // Dump file
+    boost::iostreams::filtering_ostream dumpOut;
+    if (c.hasDumpFile) {
+      dumpOut.push(boost::iostreams::gzip_compressor());
+      dumpOut.push(boost::iostreams::file_sink(c.dumpfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
+    }
     
+    // Data out
+    boost::iostreams::filtering_ostream dataOut;
+    dataOut.push(boost::iostreams::gzip_compressor());
+    dataOut.push(boost::iostreams::file_sink(c.outfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
+
+    // Data in
+    std::ifstream fafile(c.files[0].string().c_str());
+    std::string header;
+    std::string seq;
+    uint64_t lcount = 0;
+    uint32_t filterCount = 0;
+    uint32_t passCount = 0;
+    if (fafile.good()) {
+      std::string gline;
+      while(std::getline(fafile, gline)) {
+	if (lcount % 2 == 0) header = gline;
+	else if (lcount % 2 == 1) {
+	  std::string qual(gline.size(), 'E');
+	  bool filterSeq = _spotifyTheRare(c, dumpOut, gline, qual, bitH1, bitH2, hs);
+	  if (filterSeq) ++filterCount;
+	  else {
+	    ++passCount;
+	    // Output FASTA
+	    dataOut << header << std::endl;
+	    dataOut << gline << std::endl;
+	  }
+	}
+	++lcount;
+	if (lcount % (RDXON_CHUNK_SIZE * 2) == 0) {
+	  now = boost::posix_time::second_clock::local_time();
+	  std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 2) << " reads." << std::endl;
+	}
+      }
+      fafile.close();
+    }
+    now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 2) << " reads." << std::endl;
+    std::cout << "Filtered reads: " << filterCount << " (" << ((double) filterCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
+    std::cout << "Passed reads: " << passCount << " (" << ((double) passCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
+    
+    // Close output
+    dataOut.pop();
+    dataOut.pop();
+
+    // Close dump file
+    if (c.hasDumpFile) {
+      dumpOut.pop();
+      dumpOut.pop();
+    }
+    return true;
+  }
+
+  template<typename TConfigStruct, typename TBitSet, typename THashSet>
+  inline bool
+  _filterForTheRareFastaGZ(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
+    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTA.gz filtering: " << c.files[0].string() << std::endl;
+
+    // Dump file
+    boost::iostreams::filtering_ostream dumpOut;
+    if (c.hasDumpFile) {
+      dumpOut.push(boost::iostreams::gzip_compressor());
+      dumpOut.push(boost::iostreams::file_sink(c.dumpfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
+    }
+    
+    // Data out
+    boost::iostreams::filtering_ostream dataOut;
+    dataOut.push(boost::iostreams::gzip_compressor());
+    dataOut.push(boost::iostreams::file_sink(c.outfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
+
+    // Data in
+    std::ifstream file(c.files[0].string().c_str(), std::ios_base::in | std::ios_base::binary);
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> dataIn;
+    dataIn.push(boost::iostreams::gzip_decompressor());
+    dataIn.push(file);
+    std::istream instream(&dataIn);
+    std::string gline;
+    std::string header;
+    uint64_t lcount = 0;
+    uint32_t filterCount = 0;
+    uint32_t passCount = 0;
+    while(std::getline(instream, gline)) {
+      if (lcount % 2 == 0) header = gline;
+      else if (lcount % 2 == 1) {
+	std::string qual(gline.size(), 'E');
+	bool filterSeq = _spotifyTheRare(c, dumpOut, gline, qual, bitH1, bitH2, hs);
+	if (filterSeq) ++filterCount;
+	else {
+	  ++passCount;
+	  // Output FASTA
+	  dataOut << header << std::endl;
+	  dataOut << gline << std::endl;
+	}
+      }
+      ++lcount;
+      if (lcount % (RDXON_CHUNK_SIZE * 2) == 0) {
+	now = boost::posix_time::second_clock::local_time();
+	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 2) << " reads." << std::endl;
+      }
+      //if (lcount > RDXON_CHUNK_SIZE) break;
+    }
+    now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 2) << " reads." << std::endl;
+    std::cout << "Filtered reads: " << filterCount << " (" << ((double) filterCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
+    std::cout << "Passed reads: " << passCount << " (" << ((double) passCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
+    
+    // Close input
+    dataIn.pop();
+    dataIn.pop();
+    file.close();
+
+    // Close output
+    dataOut.pop();
+    dataOut.pop();
+
+    // Close dump file
+    if (c.hasDumpFile) {
+      dumpOut.pop();
+      dumpOut.pop();
+    }
+    return true;
+  }
+  
+
+  template<typename TConfigStruct, typename TBitSet, typename THashSet>
+  inline bool
+  _filterForTheRareFastq(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
+    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ filtering: " << c.files[0].string() << std::endl;
+
+    // Dump file
+    boost::iostreams::filtering_ostream dumpOut;
+    if (c.hasDumpFile) {
+      dumpOut.push(boost::iostreams::gzip_compressor());
+      dumpOut.push(boost::iostreams::file_sink(c.dumpfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
+    }
+    
+    // Data out
+    boost::iostreams::filtering_ostream dataOut;
+    dataOut.push(boost::iostreams::gzip_compressor());
+    dataOut.push(boost::iostreams::file_sink(c.outfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
+
+    // Data in
+    std::ifstream fqfile(c.files[0].string().c_str());
+    std::string header;
+    std::string seq;
+    uint64_t lcount = 0;
+    uint32_t filterCount = 0;
+    uint32_t passCount = 0;
+    if (fqfile.good()) {
+      std::string gline;
+      while(std::getline(fqfile, gline)) {
+	if (lcount % 4 == 0) header = gline;
+	else if (lcount % 4 == 1) seq = gline;
+	else if (lcount % 4 == 3) {
+	  if (avgQual(gline) >= c.minQual) {
+	    bool filterSeq = _spotifyTheRare(c, dumpOut, seq, gline, bitH1, bitH2, hs);
+	    if (filterSeq) ++filterCount;
+	    else {
+	      ++passCount;
+	      // Output FASTQ
+	      dataOut << header << std::endl;
+	      dataOut << seq << std::endl;
+	      dataOut << "+" << std::endl;
+	      dataOut << gline << std::endl;
+	    }
+	  } else ++filterCount;
+	}
+	++lcount;
+	if (lcount % (RDXON_CHUNK_SIZE * 4) == 0) {
+	  now = boost::posix_time::second_clock::local_time();
+	  std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
+	}
+      }
+      fqfile.close();
+    }
+    now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
+    std::cout << "Filtered reads: " << filterCount << " (" << ((double) filterCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
+    std::cout << "Passed reads: " << passCount << " (" << ((double) passCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
+    
+    // Close output
+    dataOut.pop();
+    dataOut.pop();
+
+    // Close dump file
+    if (c.hasDumpFile) {
+      dumpOut.pop();
+      dumpOut.pop();
+    }
+    return true;
+  }
   
   template<typename TConfigStruct, typename TBitSet, typename THashSet>
   inline bool
-  _filterForTheRare(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
+  _filterForTheRareFastqGZ(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ filtering: " << c.outfile.string() << std::endl;;
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ.gz filtering: " << c.files[0].string() << std::endl;
 
     // Dump file
     boost::iostreams::filtering_ostream dumpOut;
@@ -504,40 +756,19 @@ namespace rdxon
     while(std::getline(instream, gline)) {
       if (lcount % 4 == 0) header = gline;
       else if (lcount % 4 == 1) seq = gline;
-      else if (lcount % 4 == 2) {} // Skip the spacing line
-      else if ((lcount % 4 == 3) && (avgQual(gline) >= c.minQual)) {
-	std::string rcseq(seq);
-	reverseComplement(rcseq);
-	uint32_t seqlen = seq.size();
-	bool filterSeq = true;
-	for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
-	  std::string kmerStr = seq.substr(pos, c.kmerLength);
-	  if (nContent(kmerStr)) continue;
-	  unsigned h1Raw = hash_string(kmerStr.c_str());
-	  unsigned h2Raw = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
-	  unsigned h1 = h1Raw;
-	  unsigned h2 = h2Raw;
-	  if (h1 > h2) {
-	    h1 = h2Raw;
-	    h2 = h1Raw;
+      else if (lcount % 4 == 3) {
+	if (avgQual(gline) >= c.minQual) {
+	  bool filterSeq = _spotifyTheRare(c, dumpOut, seq, gline, bitH1, bitH2, hs);
+	  if (filterSeq) ++filterCount;
+	  else {
+	    ++passCount;
+	    // Output FASTQ
+	    dataOut << header << std::endl;
+	    dataOut << seq << std::endl;
+	    dataOut << "+" << std::endl;
+	    dataOut << gline << std::endl;
 	  }
-	  if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
-	    filterSeq = false;
-	    if (c.hasDumpFile) {
-	      if (h1Raw < h2Raw) dumpOut << kmerStr.c_str() << std::endl;
-	      else dumpOut << rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength) << std::endl;
-	    }
-	  }
-	}
-	if (filterSeq) ++filterCount;
-	else {
-	  ++passCount;
-	  // Output FASTQ
-	  dataOut << header << std::endl;
-	  dataOut << seq << std::endl;
-	  dataOut << "+" << std::endl;
-	  dataOut << gline << std::endl;
-	}
+	} else ++filterCount;
       }
       ++lcount;
       if (lcount % (RDXON_CHUNK_SIZE * 4) == 0) {
@@ -572,7 +803,7 @@ namespace rdxon
   inline bool
   _filterForTheRareBAM(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ filtering: " << c.outfile.string() << std::endl;;
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] BAM filtering: " << c.files[0].string() << std::endl;
 
     // Dump file
     boost::iostreams::filtering_ostream dumpOut;

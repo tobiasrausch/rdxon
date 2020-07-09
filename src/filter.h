@@ -100,10 +100,16 @@ namespace rdxon {
       bool filterRet = false;
       if (c.files.size() == 1) {
 	if (!c.intype) filterRet = _filterForTheRareBAM(c, bitH1, bitH2, hs);
-	else filterRet = _filterForTheRare(c, bitH1, bitH2, hs);
+	else if (c.intype == 1) filterRet = _filterForTheRareFastqGZ(c, bitH1, bitH2, hs);
+	else if (c.intype == 2) filterRet = _filterForTheRareFastaGZ(c, bitH1, bitH2, hs);
+	else if (c.intype == 3) filterRet = _filterForTheRareFastq(c, bitH1, bitH2, hs);
+	else if (c.intype == 4) filterRet = _filterForTheRareFasta(c, bitH1, bitH2, hs);
+	else {
+	  std::cerr << "Unsupported file format!" << std::endl;
+	}
       } else filterRet = _filterForTheRarePE(c, bitH1, bitH2, hs);
       if (!filterRet) {
-	std::cerr << "Couldn't parse FASTQ files!" << std::endl;
+	std::cerr << "Couldn't parse input files!" << std::endl;
 	return 1;
       }
     }
