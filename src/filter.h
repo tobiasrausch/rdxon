@@ -185,7 +185,7 @@ namespace rdxon {
     // Check input files
     for(uint32_t file_c = 0; file_c < c.files.size(); ++file_c) {
       if (!(boost::filesystem::exists(c.files[file_c]) && boost::filesystem::is_regular_file(c.files[file_c]) && boost::filesystem::file_size(c.files[file_c]))) {
-	std::cerr << "FASTQ file is missing: " << c.files[file_c].string() << std::endl;
+	std::cerr << "Input file is missing: " << c.files[file_c].string() << std::endl;
 	return 1;
       } else {
 	c.intype = inputType(c.files[file_c].string());

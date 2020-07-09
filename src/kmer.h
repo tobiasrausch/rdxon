@@ -141,10 +141,114 @@ namespace rdxon
     return true;
   }
 
+  template<typename TConfigStruct, typename TBitSet, typename TMissingKmers>
+  inline void
+  _chopSeqAndQual(TConfigStruct const& c, std::string const& seq, std::string const& qual, TBitSet const& bitH1, TBitSet const& bitH2, TBitSet& singleH1, TBitSet& singleH2, TMissingKmers& hp) {
+    int32_t seqlen = seq.size();
+    uint32_t aq = 0;
+    uint32_t nsum = 0;
+    for (int32_t pos = 0; ((pos < c.kmerLength) && (pos < seqlen)); ++pos) {
+      if (seq[pos] == 'N') ++nsum;
+      aq += (uint8_t) qual[pos];
+    }
+    for (int32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
+      if (pos) {
+	if (seq[pos - 1] == 'N') --nsum;
+	if (seq[pos + c.kmerLength - 1] == 'N') ++nsum;
+	aq -= (uint8_t) qual[pos - 1];
+	aq += (uint8_t) qual[pos + c.kmerLength - 1];
+      }
+      if ((uint16_t) (aq /c.kmerLength) < c.minQual + 33) continue;
+      if (nsum) continue;
+      unsigned h1 = 37;
+      for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) h1 = (h1 * 54059) ^ (seq[i] * 76963);
+      unsigned h2 = 37;
+      for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) h2 = (h2 * 54059) ^ (cpl[(uint8_t) seq[i]] * 76963);
+      if (h1 > h2) {
+	unsigned tmp = h1;
+	h1 = h2;
+	h2 = tmp;
+      }
+      if ((!bitH1[h1]) || (!bitH2[h2])) {
+	// K-mer not in DB
+	if ((!singleH1[h1]) || (!singleH2[h2])) {
+	  // Potential singleton k-mer due to seq. error
+	  singleH1[h1] = true;
+	  singleH2[h2] = true;
+	} else {
+	  // K-mer not a singleton and not in DB
+	  typename TMissingKmers::iterator it = hp.find(std::make_pair(h1, h2));
+	  if (it == hp.end()) hp.insert(std::make_pair(std::make_pair(h1, h2), 2));
+	  else ++it->second;
+	}
+      }
+    }
+  }
   
   template<typename TConfigStruct, typename TBitSet, typename TMissingKmers>
   inline bool
-  _countMissingKmer(TConfigStruct const& c, boost::filesystem::path const& infile, TBitSet const& bitH1, TBitSet const& bitH2, TBitSet& singleH1, TBitSet& singleH2, TMissingKmers& hp) {
+  _countMissingKmerFastaGZ(TConfigStruct const& c, boost::filesystem::path const& infile, TBitSet const& bitH1, TBitSet const& bitH2, TBitSet& singleH1, TBitSet& singleH2, TMissingKmers& hp) {
+    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+
+    // Open file
+    std::ifstream file(infile.string().c_str(), std::ios_base::in | std::ios_base::binary);
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> dataIn;
+    dataIn.push(boost::iostreams::gzip_decompressor());
+    dataIn.push(file);
+    std::istream instream(&dataIn);
+    std::string gline;
+    uint64_t lcount = 0;
+    while(std::getline(instream, gline)) {
+      if (lcount % 2 == 1) {
+	std::string qual(gline.size(), 'E');
+	_chopSeqAndQual(c, gline, qual, bitH1, bitH2, singleH1, singleH2, hp);
+      }
+      ++lcount;
+      if (lcount % (RDXON_CHUNK_SIZE * 2) == 0) {
+	now = boost::posix_time::second_clock::local_time();
+	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 2) << " reads." << std::endl;
+      }
+    }
+    now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 2) << " reads." << std::endl;
+    dataIn.pop();
+    dataIn.pop();
+    file.close();
+    return true;
+  }
+
+  template<typename TConfigStruct, typename TBitSet, typename TMissingKmers>
+  inline bool
+  _countMissingKmerFasta(TConfigStruct const& c, boost::filesystem::path const& infile, TBitSet const& bitH1, TBitSet const& bitH2, TBitSet& singleH1, TBitSet& singleH2, TMissingKmers& hp) {
+    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+
+    // Open file
+    std::ifstream fafile(infile.string().c_str());
+    std::string seq;
+    uint64_t lcount = 0;
+    if (fafile.good()) {
+      std::string gline;
+      while(std::getline(fafile, gline)) {
+	if (lcount % 2 == 1) {
+	  std::string qual(gline.size(), 'E');
+	  _chopSeqAndQual(c, gline, qual, bitH1, bitH2, singleH1, singleH2, hp);
+	}
+	++lcount;
+	if (lcount % (RDXON_CHUNK_SIZE * 2) == 0) {
+	  now = boost::posix_time::second_clock::local_time();
+	  std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 2) << " reads." << std::endl;
+	}
+      }
+      fafile.close();
+    }
+    now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 2) << " reads." << std::endl;
+    return true;
+  }
+  
+  template<typename TConfigStruct, typename TBitSet, typename TMissingKmers>
+  inline bool
+  _countMissingKmerFastqGZ(TConfigStruct const& c, boost::filesystem::path const& infile, TBitSet const& bitH1, TBitSet const& bitH2, TBitSet& singleH1, TBitSet& singleH2, TMissingKmers& hp) {
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
 
     // Open file
@@ -156,58 +260,51 @@ namespace rdxon
     std::string gline;
     std::string seq;
     uint64_t lcount = 0;
-    uint32_t filterCount = 0;
-    uint32_t passCount = 0;
     while(std::getline(instream, gline)) {
       if (lcount % 4 == 1) seq = gline;
       else if ((lcount % 4 == 3) && (avgQual(gline) >= c.minQual)) {
-	std::string rcseq(seq);
-	reverseComplement(rcseq);
-	uint32_t seqlen = seq.size();
-	bool filterSeq = true;
-	for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
-	  std::string kmerStr = seq.substr(pos, c.kmerLength);
-	  if (nContent(kmerStr)) continue;
-	  unsigned h1 = hash_string(kmerStr.c_str());
-	  unsigned h2 = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
-	  if (h1 > h2) {
-	    unsigned tmp = h1;
-	    h1 = h2;
-	    h2 = tmp;
-	  }
-	  if ((!bitH1[h1]) || (!bitH2[h2])) {
-	    // K-mer not in DB
-	    if ((!singleH1[h1]) || (!singleH2[h2])) {
-	      // Potential singleton k-mer due to seq. error
-	      singleH1[h1] = true;
-	      singleH2[h2] = true;
-	    } else {
-	      // K-mer not a singleton and not in DB
-	      filterSeq = false;
-	      typename TMissingKmers::iterator it = hp.find(std::make_pair(h1, h2));
-	      if (it == hp.end()) hp.insert(std::make_pair(std::make_pair(h1, h2), 2));
-	      else ++it->second;
-	    }
-	  }
-	}
-	if (filterSeq) ++filterCount;
-	else ++passCount;
+	_chopSeqAndQual(c, seq, gline, bitH1, bitH2, singleH1, singleH2, hp);
       }
       ++lcount;
       if (lcount % (RDXON_CHUNK_SIZE * 4) == 0) {
 	now = boost::posix_time::second_clock::local_time();
 	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
       }
-      //if (lcount > RDXON_CHUNK_SIZE) break;
     }
     now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
-    std::cout << "Filtered reads: " << filterCount << " (" << ((double) filterCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
-    std::cout << "Passed reads: " << passCount << " (" << ((double) passCount * 100.0 / (double) (filterCount + passCount)) << "%)" << std::endl;
-
     dataIn.pop();
     dataIn.pop();
     file.close();
+    return true;
+  }
+
+  template<typename TConfigStruct, typename TBitSet, typename TMissingKmers>
+  inline bool
+  _countMissingKmerFastq(TConfigStruct const& c, boost::filesystem::path const& infile, TBitSet const& bitH1, TBitSet const& bitH2, TBitSet& singleH1, TBitSet& singleH2, TMissingKmers& hp) {
+    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+
+    // Open file
+    std::ifstream fqfile(infile.string().c_str());
+    std::string seq;
+    uint64_t lcount = 0;
+    if (fqfile.good()) {
+      std::string gline;
+      while(std::getline(fqfile, gline)) {
+	if (lcount % 4 == 1) seq = gline;
+	else if ((lcount % 4 == 3) && (avgQual(gline) >= c.minQual)) {
+	  _chopSeqAndQual(c, seq, gline, bitH1, bitH2, singleH1, singleH2, hp);
+	}
+	++lcount;
+	if (lcount % (RDXON_CHUNK_SIZE * 4) == 0) {
+	  now = boost::posix_time::second_clock::local_time();
+	  std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
+	}
+      }
+      fqfile.close();
+    }
+    now = boost::posix_time::second_clock::local_time();
+    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " reads." << std::endl;
     return true;
   }
   
@@ -304,15 +401,32 @@ namespace rdxon
     // Parse FASTQs
     for(uint32_t file_c = 0; file_c < c.files.size(); ++file_c) {
       boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-      std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ parsing: " << c.files[file_c].string() << std::endl;
       if (!c.intype) {
+	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] BAM parsing: " << c.files[file_c].string() << std::endl;
 	if (!_countMissingKmerBAM(c, c.files[file_c], bitH1, bitH2, singleH1, singleH2, hp)) return false;
+      } else if (c.intype == 1) {
+	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ.gz parsing: " << c.files[file_c].string() << std::endl;
+	if (!_countMissingKmerFastqGZ(c, c.files[file_c], bitH1, bitH2, singleH1, singleH2, hp)) return false;
+      } else if (c.intype == 2) {
+	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTA.gz parsing: " << c.files[file_c].string() << std::endl;
+	if (!_countMissingKmerFastaGZ(c, c.files[file_c], bitH1, bitH2, singleH1, singleH2, hp)) return false;
       } else if (c.intype == 3) {
-	// Assembly mode, FASTA chopping
-	if (!_extractMissingKmer(c, c.files[file_c], bitH1, bitH2)) return false;
+	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ parsing: " << c.files[file_c].string() << std::endl;
+	if (!_countMissingKmerFastq(c, c.files[file_c], bitH1, bitH2, singleH1, singleH2, hp)) return false;
+      } else if (c.intype == 4) {
+	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTA parsing: " << c.files[file_c].string() << std::endl;
+	if (!_countMissingKmerFasta(c, c.files[file_c], bitH1, bitH2, singleH1, singleH2, hp)) return false;
       } else {
-	if (!_countMissingKmer(c, c.files[file_c], bitH1, bitH2, singleH1, singleH2, hp)) return false;
+	std::cerr << "Unsupported file format!" << std::endl;
+	return false;
       }
+      
+      // Assembly mode, FASTA chopping
+      // ToDo
+      //if (!_extractMissingKmer(c, c.files[file_c], bitH1, bitH2)) return false;
+      //} else {
+
+      //}
     }
     return true;
   }
@@ -350,7 +464,7 @@ namespace rdxon
     
     // Count k-mers not in DB
     if (!_countMissingKmer(c, bitH1, bitH2, hp)) {
-      std::cerr << "Couldn't parse input FASTQ files!" << std::endl;
+      std::cerr << "Couldn't parse input files!" << std::endl;
       return false;
     }
     return true;

@@ -60,9 +60,25 @@ namespace rdxon
 	sam_close(samfile);
       }
       if (inputBam) return 0; // Bam
-      else if (((uint8_t)fcode[0] == (uint8_t)0x1f) && ((uint8_t)fcode[1] == (uint8_t)0x8b)) return 1; // Gzipped fastq
-      else if (fcode[0] == '@') return 2; // Fastq file
-      else if (fcode[0] == '>') return 3; // Fasta file
+      else if (((uint8_t)fcode[0] == (uint8_t)0x1f) && ((uint8_t)fcode[1] == (uint8_t)0x8b)) {
+	std::ifstream file(path.c_str(), std::ios_base::in | std::ios_base::binary);
+	boost::iostreams::filtering_streambuf<boost::iostreams::input> dataIn;
+	dataIn.push(boost::iostreams::gzip_decompressor());
+	dataIn.push(file);
+	std::istream instream(&dataIn);
+	std::string gline;
+	int32_t retVal = -1;
+	while(std::getline(instream, gline)) {
+	  if ((gline.size()) && (gline[0] == '@')) retVal = 1; // Gzipped FASTQ
+	  else if ((gline.size()) && (gline[0] == '>')) retVal = 2; // Gzipped FASTA
+	}
+	dataIn.pop();
+	dataIn.pop();
+	file.close();	
+	return retVal;
+      }
+      else if (fcode[0] == '@') return 3; // Fastq file
+      else if (fcode[0] == '>') return 4; // Fasta file
     }
     return -1;
   }
