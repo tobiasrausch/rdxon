@@ -230,20 +230,26 @@ namespace rdxon
       // Get the read sequence
       uint8_t* qualptr = bam_get_qual(rec);
       uint32_t aq = 0;
+      uint32_t nsum = 0;
       for (int32_t i = 0; i < rec->core.l_qseq; ++i) aq += (uint32_t)((uint8_t) qualptr[i]);
       if ((uint16_t) (aq / rec->core.l_qseq) >= c.minQual) {
 	std::string seq(rec->core.l_qseq, 'N');
 	uint8_t* seqptr = bam_get_seq(rec);
 	for (int32_t i = 0; i < rec->core.l_qseq; ++i) seq[i] = "=ACMGRSVTWYHKDBN"[bam_seqi(seqptr, i)];
-	uint32_t nsum = 0;
+	nsum = 0;
+	aq = 0;
 	for (int32_t pos = 0; ((pos < c.kmerLength) && (pos < rec->core.l_qseq)); ++pos) {
 	  if (seq[pos] == 'N') ++nsum;
+	  aq += (uint8_t) qualptr[pos];
 	}
 	for (int32_t pos = 0; pos + c.kmerLength <= rec->core.l_qseq; ++pos) {
 	  if (pos) {
 	    if (seq[pos - 1] == 'N') --nsum;
 	    if (seq[pos + c.kmerLength - 1] == 'N') ++nsum;
+	    aq -= (uint8_t) qualptr[pos - 1];
+	    aq += (uint8_t) qualptr[pos + c.kmerLength - 1];
 	  }
+	  if ((uint16_t) (aq /c.kmerLength) < c.minQual) continue;
 	  if (nsum) continue;
 	  unsigned h1 = 37;
 	  for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) h1 = (h1 * 54059) ^ (seq[i] * 76963);
@@ -478,29 +484,36 @@ namespace rdxon
     bam1_t* rec = bam_init1();
     while (sam_read1(samfile, hdr, rec) >= 0) {
       if (rec->core.flag & (BAM_FSECONDARY | BAM_FQCFAIL | BAM_FDUP | BAM_FSUPPLEMENTARY)) continue;
-      
+
       // Get the read sequence
-      typedef std::vector<uint8_t> TQuality;
-      TQuality quality;
-      quality.resize(rec->core.l_qseq);
-      std::string seq;
-      seq.resize(rec->core.l_qseq);
-      uint8_t* seqptr = bam_get_seq(rec);
       uint8_t* qualptr = bam_get_qual(rec);
-      for (int32_t i = 0; i < rec->core.l_qseq; ++i) {
-	quality[i] = qualptr[i];
-	seq[i] = "=ACMGRSVTWYHKDBN"[bam_seqi(seqptr, i)];
-      }
-      if (avgQual(quality) >= c.minQual) {
-	std::string rcseq(seq);
-	reverseComplement(rcseq);
-	uint32_t seqlen = seq.size();
+      uint32_t aq = 0;
+      uint32_t nsum = 0;
+      for (int32_t i = 0; i < rec->core.l_qseq; ++i) aq += (uint32_t)((uint8_t) qualptr[i]);
+      if ((uint16_t) (aq / rec->core.l_qseq) >= c.minQual) {
+	std::string seq(rec->core.l_qseq, 'N');
+	uint8_t* seqptr = bam_get_seq(rec);
+	for (int32_t i = 0; i < rec->core.l_qseq; ++i) seq[i] = "=ACMGRSVTWYHKDBN"[bam_seqi(seqptr, i)];
+	nsum = 0;
+	aq = 0;
+	for (int32_t pos = 0; ((pos < c.kmerLength) && (pos < rec->core.l_qseq)); ++pos) {
+	  if (seq[pos] == 'N') ++nsum;
+	  aq += (uint8_t) qualptr[pos];
+	}
 	bool filterSeq = true;
-	for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
-	  std::string kmerStr = seq.substr(pos, c.kmerLength);
-	  if (nContent(kmerStr)) continue;
-	  unsigned h1Raw = hash_string(kmerStr.c_str());
-	  unsigned h2Raw = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
+	for (int32_t pos = 0; pos + c.kmerLength <= rec->core.l_qseq; ++pos) {
+	  if (pos) {
+	    if (seq[pos - 1] == 'N') --nsum;
+	    if (seq[pos + c.kmerLength - 1] == 'N') ++nsum;
+	    aq -= (uint8_t) qualptr[pos - 1];
+	    aq += (uint8_t) qualptr[pos + c.kmerLength - 1];
+	  }
+	  if ((uint16_t) (aq /c.kmerLength) < c.minQual) continue;
+	  if (nsum) continue;
+	  unsigned h1Raw = 37;
+	  for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) h1Raw = (h1Raw * 54059) ^ (seq[i] * 76963);
+	  unsigned h2Raw = 37;
+	  for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) h2Raw = (h2Raw * 54059) ^ (cpl[(uint8_t) seq[i]] * 76963);
 	  unsigned h1 = h1Raw;
 	  unsigned h2 = h2Raw;
 	  if (h1 > h2) {
@@ -510,8 +523,12 @@ namespace rdxon
 	  if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
 	    filterSeq = false;
 	    if (c.hasDumpFile) {
-	      if (h1Raw < h2Raw) dumpOut << kmerStr.c_str() << std::endl;
-	      else dumpOut << rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength) << std::endl;
+	      if (h1Raw < h2Raw) {
+		for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) dumpOut << seq[i];
+	      } else {
+		for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) dumpOut << cpl[(uint8_t) seq[i]];
+	      }
+	      dumpOut << std::endl;
 	    }
 	  }
 	}
@@ -520,25 +537,30 @@ namespace rdxon
 	  ++passCount;
 	  // Output FASTQ (read1 or read2)
 	  std::string rname = bam_get_qname(rec);
-	  if (rec->core.flag & BAM_FREVERSE) {
-	    reverseComplement(seq);
-	    std::reverse(quality.begin(), quality.end());
-	  }
+	  if (rec->core.flag & BAM_FREVERSE) reverseComplement(seq);
 	  if (rec->core.flag & BAM_FREAD2) {
 	    dataOut << "@" << rname << "R2" << std::endl;
 	    dataOut << seq << std::endl;
 	    dataOut << "+" << std::endl;
-	    for (int32_t i = 0; i < rec->core.l_qseq; ++i) dataOut << boost::lexical_cast<char>((uint8_t) (quality[i] + 33));
+	    if (rec->core.flag & BAM_FREVERSE) {
+	      for (int32_t i = rec->core.l_qseq - 1; i>=0; --i) dataOut << boost::lexical_cast<char>((uint8_t) (qualptr[i] + 33));
+	    } else {
+	      for (int32_t i = 0; i < rec->core.l_qseq; ++i) dataOut << boost::lexical_cast<char>((uint8_t) (qualptr[i] + 33));
+	    }
 	    dataOut << std::endl;
 	  } else {
 	    dataOut << "@" << rname << "R1" << std::endl;
 	    dataOut << seq << std::endl;
 	    dataOut << "+" << std::endl;
-	    for (int32_t i = 0; i < rec->core.l_qseq; ++i) dataOut << boost::lexical_cast<char>((uint8_t) (quality[i] + 33));
+	    if (rec->core.flag & BAM_FREVERSE) {
+	      for (int32_t i = rec->core.l_qseq - 1; i>=0; --i) dataOut << boost::lexical_cast<char>((uint8_t) (qualptr[i] + 33));
+	    } else {
+	      for (int32_t i = 0; i < rec->core.l_qseq; ++i) dataOut << boost::lexical_cast<char>((uint8_t) (qualptr[i] + 33));
+	    } 
 	    dataOut << std::endl;
 	  }
 	}
-      }
+      } else ++filterCount;
       ++lcount;
       if (lcount % RDXON_CHUNK_SIZE == 0) {
 	now = boost::posix_time::second_clock::local_time();
