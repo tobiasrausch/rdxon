@@ -505,6 +505,7 @@ namespace rdxon
       if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
 	filterSeq = false;
 	if (c.hasDumpFile) {
+	  dumpOut << h1 << '\t' << h2 << '\t';
 	  if (h1Raw < h2Raw) {
 	    for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) dumpOut << seq[i];
 	  } else {
@@ -868,6 +869,7 @@ namespace rdxon
 	  if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
 	    filterSeq = false;
 	    if (c.hasDumpFile) {
+	      dumpOut << h1 << '\t' << h2 << '\t';
 	      if (h1Raw < h2Raw) {
 		for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) dumpOut << seq[i];
 	      } else {
