@@ -64,7 +64,14 @@ namespace rdxon {
       // Clean bit arrays
       for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH1[i] = false;
       for(uint64_t i = 0; i < RDXON_MAX_HASH; ++i) bitH2[i] = false;
-    
+
+      // Dump file
+      boost::iostreams::filtering_ostream dumpOut;
+      if (c.hasDumpFile) {
+	dumpOut.push(boost::iostreams::gzip_compressor());
+	dumpOut.push(boost::iostreams::file_sink(c.dumpfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
+      }
+      
       // Process hash table
       std::vector<uint32_t> kmerFreqDist(RDXON_KMER_MAXFREQ, 0);
       now = boost::posix_time::second_clock::local_time();
@@ -82,17 +89,21 @@ namespace rdxon {
 	  bitH1[it->first.first] = true;
 	  bitH2[it->first.second] = true;
 	  ++passKmer;
+	  if (c.hasDumpFile) dumpOut << it->first.first << '\t' << it->first.second << '\t' << it->second << std::endl;
 	}
       }
       std::cout << "Filtered k-mers (<min): " << filterKmerMin << std::endl;
       std::cout << "Filtered k-mers (>max): " << filterKmerMax << std::endl;
       std::cout << "Passed hashed k-mers: " << passKmer << std::endl;
+
+      //if (h1Raw < h2Raw) { //for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) dumpOut << seq[i];
+      //} else { for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) dumpOut << cpl[(uint8_t) seq[i]];
       
-      // Debug
-      //std::cerr << "Rare k-mer distribution (^RKD)" << std::endl;
-      //for(uint32_t i = 0; i < RDXON_KMER_MAXFREQ; ++i) {
-      //std::cerr << "RKD\t" << i << "\t" << kmerFreqDist[i] << std::endl;
-      //}
+      // Close dump file
+      if (c.hasDumpFile) {
+	dumpOut.pop();
+	dumpOut.pop();
+      }
     }
     
     // Filter for the rare

@@ -476,10 +476,9 @@ namespace rdxon
 
 
 
-  template<typename TConfigStruct, typename TDumpStream, typename TBitSet, typename THashSet>
+  template<typename TConfigStruct, typename TBitSet, typename THashSet>
   inline bool
-  _spotifyTheRare(TConfigStruct const& c, TDumpStream& dumpOut, std::string const& seq, std::string const& qual, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
-    bool filterSeq = true;
+  _spotifyTheRare(TConfigStruct const& c, std::string const& seq, std::string const& qual, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
     int32_t seqlen = seq.size();
     uint32_t aq = 0;
     uint32_t nsum = 0;
@@ -506,20 +505,9 @@ namespace rdxon
 	h1 = h2Raw;
 	h2 = h1Raw;
       }
-      if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
-	filterSeq = false;
-	if (c.hasDumpFile) {
-	  dumpOut << h1 << '\t' << h2 << '\t';
-	  if (h1Raw < h2Raw) {
-	    for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) dumpOut << seq[i];
-	  } else {
-	    for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) dumpOut << cpl[(uint8_t) seq[i]];
-	  }
-	  dumpOut << std::endl;
-	}
-      }
+      if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) return false;
     }
-    return filterSeq;
+    return true;
   }
 
   template<typename TConfigStruct, typename TBitSet, typename THashSet>
@@ -528,13 +516,6 @@ namespace rdxon
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTA filtering: " << c.files[0].string() << std::endl;
 
-    // Dump file
-    boost::iostreams::filtering_ostream dumpOut;
-    if (c.hasDumpFile) {
-      dumpOut.push(boost::iostreams::gzip_compressor());
-      dumpOut.push(boost::iostreams::file_sink(c.dumpfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
-    }
-    
     // Data out
     boost::iostreams::filtering_ostream dataOut;
     dataOut.push(boost::iostreams::gzip_compressor());
@@ -553,7 +534,7 @@ namespace rdxon
 	if (lcount % 2 == 0) header = gline;
 	else if (lcount % 2 == 1) {
 	  std::string qual(gline.size(), 'E');
-	  bool filterSeq = _spotifyTheRare(c, dumpOut, gline, qual, bitH1, bitH2, hs);
+	  bool filterSeq = _spotifyTheRare(c, gline, qual, bitH1, bitH2, hs);
 	  if (filterSeq) ++filterCount;
 	  else {
 	    ++passCount;
@@ -579,11 +560,6 @@ namespace rdxon
     dataOut.pop();
     dataOut.pop();
 
-    // Close dump file
-    if (c.hasDumpFile) {
-      dumpOut.pop();
-      dumpOut.pop();
-    }
     return true;
   }
 
@@ -593,13 +569,6 @@ namespace rdxon
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTA.gz filtering: " << c.files[0].string() << std::endl;
 
-    // Dump file
-    boost::iostreams::filtering_ostream dumpOut;
-    if (c.hasDumpFile) {
-      dumpOut.push(boost::iostreams::gzip_compressor());
-      dumpOut.push(boost::iostreams::file_sink(c.dumpfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
-    }
-    
     // Data out
     boost::iostreams::filtering_ostream dataOut;
     dataOut.push(boost::iostreams::gzip_compressor());
@@ -620,7 +589,7 @@ namespace rdxon
       if (lcount % 2 == 0) header = gline;
       else if (lcount % 2 == 1) {
 	std::string qual(gline.size(), 'E');
-	bool filterSeq = _spotifyTheRare(c, dumpOut, gline, qual, bitH1, bitH2, hs);
+	bool filterSeq = _spotifyTheRare(c, gline, qual, bitH1, bitH2, hs);
 	if (filterSeq) ++filterCount;
 	else {
 	  ++passCount;
@@ -650,11 +619,6 @@ namespace rdxon
     dataOut.pop();
     dataOut.pop();
 
-    // Close dump file
-    if (c.hasDumpFile) {
-      dumpOut.pop();
-      dumpOut.pop();
-    }
     return true;
   }
   
@@ -665,13 +629,6 @@ namespace rdxon
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ filtering: " << c.files[0].string() << std::endl;
 
-    // Dump file
-    boost::iostreams::filtering_ostream dumpOut;
-    if (c.hasDumpFile) {
-      dumpOut.push(boost::iostreams::gzip_compressor());
-      dumpOut.push(boost::iostreams::file_sink(c.dumpfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
-    }
-    
     // Data out
     boost::iostreams::filtering_ostream dataOut;
     dataOut.push(boost::iostreams::gzip_compressor());
@@ -691,7 +648,7 @@ namespace rdxon
 	else if (lcount % 4 == 1) seq = gline;
 	else if (lcount % 4 == 3) {
 	  if (avgQual(gline) >= c.minQual) {
-	    bool filterSeq = _spotifyTheRare(c, dumpOut, seq, gline, bitH1, bitH2, hs);
+	    bool filterSeq = _spotifyTheRare(c, seq, gline, bitH1, bitH2, hs);
 	    if (filterSeq) ++filterCount;
 	    else {
 	      ++passCount;
@@ -720,11 +677,6 @@ namespace rdxon
     dataOut.pop();
     dataOut.pop();
 
-    // Close dump file
-    if (c.hasDumpFile) {
-      dumpOut.pop();
-      dumpOut.pop();
-    }
     return true;
   }
   
@@ -734,13 +686,6 @@ namespace rdxon
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] FASTQ.gz filtering: " << c.files[0].string() << std::endl;
 
-    // Dump file
-    boost::iostreams::filtering_ostream dumpOut;
-    if (c.hasDumpFile) {
-      dumpOut.push(boost::iostreams::gzip_compressor());
-      dumpOut.push(boost::iostreams::file_sink(c.dumpfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
-    }
-    
     // Data out
     boost::iostreams::filtering_ostream dataOut;
     dataOut.push(boost::iostreams::gzip_compressor());
@@ -763,7 +708,7 @@ namespace rdxon
       else if (lcount % 4 == 1) seq = gline;
       else if (lcount % 4 == 3) {
 	if (avgQual(gline) >= c.minQual) {
-	  bool filterSeq = _spotifyTheRare(c, dumpOut, seq, gline, bitH1, bitH2, hs);
+	  bool filterSeq = _spotifyTheRare(c, seq, gline, bitH1, bitH2, hs);
 	  if (filterSeq) ++filterCount;
 	  else {
 	    ++passCount;
@@ -796,11 +741,6 @@ namespace rdxon
     dataOut.pop();
     dataOut.pop();
 
-    // Close dump file
-    if (c.hasDumpFile) {
-      dumpOut.pop();
-      dumpOut.pop();
-    }
     return true;
   }
 
@@ -809,13 +749,6 @@ namespace rdxon
   _filterForTheRareBAM(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] BAM filtering: " << c.files[0].string() << std::endl;
-
-    // Dump file
-    boost::iostreams::filtering_ostream dumpOut;
-    if (c.hasDumpFile) {
-      dumpOut.push(boost::iostreams::gzip_compressor());
-      dumpOut.push(boost::iostreams::file_sink(c.dumpfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
-    }
 
     // Data out
     boost::iostreams::filtering_ostream dataOut;
@@ -872,15 +805,7 @@ namespace rdxon
 	  }
 	  if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
 	    filterSeq = false;
-	    if (c.hasDumpFile) {
-	      dumpOut << h1 << '\t' << h2 << '\t';
-	      if (h1Raw < h2Raw) {
-		for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) dumpOut << seq[i];
-	      } else {
-		for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) dumpOut << cpl[(uint8_t) seq[i]];
-	      }
-	      dumpOut << std::endl;
-	    }
+	    break;
 	  }
 	}
 	if (filterSeq) ++filterCount;
@@ -932,11 +857,6 @@ namespace rdxon
     dataOut.pop();
     dataOut.pop();
 
-    // Close dump file
-    if (c.hasDumpFile) {
-      dumpOut.pop();
-      dumpOut.pop();
-    }
     return true;
   }
 
@@ -946,13 +866,6 @@ namespace rdxon
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Paired-end FASTQ filtering." << std::endl;;
 
-    // Dump file
-    boost::iostreams::filtering_ostream dumpOut;
-    if (c.hasDumpFile) {
-      dumpOut.push(boost::iostreams::gzip_compressor());
-      dumpOut.push(boost::iostreams::file_sink(c.dumpfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
-    }
-    
     // Data out
     boost::filesystem::path fq1 = c.outfile.string() + ".1.fq.gz";
     boost::iostreams::filtering_ostream dataOut1;
@@ -1017,15 +930,12 @@ namespace rdxon
 	    }
 	    if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
 	      filterSeq = false;
-	      if (c.hasDumpFile) {
-		if (h1Raw < h2Raw) dumpOut << kmerStr.c_str() << std::endl;
-		else dumpOut << rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength) << std::endl;
-	      }
+	      break;
 	    }
 	  }
 	}
 	// Read2
-	if (avgQual(gline2) >= c.minQual) {
+	if ((filterSeq) && (avgQual(gline2) >= c.minQual)) {
 	  std::string rcseq(seq2);
 	  reverseComplement(rcseq);
 	  uint32_t seqlen = seq2.size();
@@ -1042,10 +952,7 @@ namespace rdxon
 	    }
 	    if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
 	      filterSeq = false;
-	      if (c.hasDumpFile) {
-		if (h1Raw < h2Raw) dumpOut << kmerStr.c_str() << std::endl;
-		else dumpOut << rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength) << std::endl;
-	      }
+	      break;
 	    }
 	  }
 	}
@@ -1089,11 +996,6 @@ namespace rdxon
     dataOut2.pop();
     dataOut2.pop();
 
-    // Close dump file
-    if (c.hasDumpFile) {
-      dumpOut.pop();
-      dumpOut.pop();
-    }
     return true;
   }
 
