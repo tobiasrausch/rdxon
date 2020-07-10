@@ -80,6 +80,7 @@ namespace rdxon {
     int32_t intype;
     bool hasHashTable;
     bool includeSeq;
+    bool firstHitOnly;
     boost::filesystem::path outfile;
     boost::filesystem::path htable;
     boost::filesystem::path infile;

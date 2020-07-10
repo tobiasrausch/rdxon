@@ -31,7 +31,7 @@ namespace rdxon {
 
   template<typename TStream, typename TConfigStruct, typename TBitSet, typename THashSet>
   inline void
-  _extractHashedKmer(TStream& dataOut, TConfigStruct const& c, std::string const& seqName, std::string const& seq, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
+  _extractHashedKmer(TStream& dataOut, TConfigStruct const& c, std::string const& seqName, std::string const& seq, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs, TBitSet& obshash) {
     int32_t seqlen = seq.size();
     uint32_t nsum = 0;
     for (int32_t pos = 0; ((pos < c.kmerLength) && (pos < seqlen)); ++pos) {
@@ -56,6 +56,11 @@ namespace rdxon {
       if ((bitH1[h1]) && (bitH2[h2])) {
 	typename THashSet::const_iterator it = std::lower_bound(hs.begin(), hs.end(), std::make_pair(h1, h2));
 	if ((it->first == h1) && (it->second == h2)) {
+	  if (c.firstHitOnly) {
+	    uint32_t idx = it - hs.begin();
+	    if (obshash[idx]) continue;
+	    else obshash[idx] = true;
+	  }
 	  //dataOut << h1 << '\t' << h2 << '\t' << seqName << ':' << (pos + 1) << '-' << (pos + c.kmerLength);
 	  dataOut << h1 << '\t' << h2 << '\t' << seqName << ':' << (pos + 1);
 	  if (c.includeSeq) {
@@ -74,7 +79,7 @@ namespace rdxon {
 
   template<typename TConfigStruct, typename TBitSet, typename THashSet>
   inline bool
-  _extractHashedKmerFasta(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
+  _extractHashedKmerFasta(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs, TBitSet& obshash) {
     // Data out
     boost::iostreams::filtering_ostream dataOut;
     dataOut.push(boost::iostreams::gzip_compressor());
@@ -90,7 +95,7 @@ namespace rdxon {
 	if (!line.empty()) {
 	  if (line[0] == '>') {
 	    if (!faname.empty()) {
-	      _extractHashedKmer(dataOut, c, faname, tmpfasta, bitH1, bitH2, hs);
+	      _extractHashedKmer(dataOut, c, faname, tmpfasta, bitH1, bitH2, hs, obshash);
 	      // Reset
 	      tmpfasta = "";
 	      faname = "";
@@ -107,7 +112,7 @@ namespace rdxon {
 	  }
 	}
       }
-      _extractHashedKmer(dataOut, c, faname, tmpfasta, bitH1, bitH2, hs);	  
+      _extractHashedKmer(dataOut, c, faname, tmpfasta, bitH1, bitH2, hs, obshash);
       fafile.close();
     }
 
@@ -120,7 +125,7 @@ namespace rdxon {
 
   template<typename TConfigStruct, typename TBitSet, typename THashSet>
   inline bool
-  _extractHashedKmerFastaGZ(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
+  _extractHashedKmerFastaGZ(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs, TBitSet& obshash) {
     // Data out
     boost::iostreams::filtering_ostream dataOut;
     dataOut.push(boost::iostreams::gzip_compressor());
@@ -139,7 +144,7 @@ namespace rdxon {
       if (!line.empty()) {
 	if (line[0] == '>') {
 	  if (!faname.empty()) {
-	    _extractHashedKmer(dataOut, c, faname, tmpfasta, bitH1, bitH2, hs);
+	    _extractHashedKmer(dataOut, c, faname, tmpfasta, bitH1, bitH2, hs, obshash);
 	    // Reset
 	    tmpfasta = "";
 	    faname = "";
@@ -156,7 +161,7 @@ namespace rdxon {
 	}
       }
     }
-    _extractHashedKmer(dataOut, c, faname, tmpfasta, bitH1, bitH2, hs);
+    _extractHashedKmer(dataOut, c, faname, tmpfasta, bitH1, bitH2, hs, obshash);
     dataIn.pop();
     dataIn.pop();
 
@@ -217,10 +222,13 @@ namespace rdxon {
 
     // Extract hashed k-mers
     if (!hs.empty()) {
+      typedef boost::dynamic_bitset<> TBitSet;
+      TBitSet obshash;
+      if (c.firstHitOnly) obshash.resize(hs.size(), false);
       bool filterRet = false;
       //if (c.intype == 1) _extractHashedKmerFastqGZ(c, bitH1, bitH2, hs);
-      if (c.intype == 2) filterRet = _extractHashedKmerFastaGZ(c, bitH1, bitH2, hs);
-      else if (c.intype == 4) filterRet = _extractHashedKmerFasta(c, bitH1, bitH2, hs);
+      if (c.intype == 2) filterRet = _extractHashedKmerFastaGZ(c, bitH1, bitH2, hs, obshash);
+      else if (c.intype == 4) filterRet = _extractHashedKmerFasta(c, bitH1, bitH2, hs, obshash);
       else {
 	std::cerr << "Unsupported file format!" << std::endl;
       }
@@ -250,6 +258,7 @@ namespace rdxon {
       ("table,t", boost::program_options::value<boost::filesystem::path>(&c.htable), "gzipped, sorted hash table")
       ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("out.tsv.gz"), "output file")
       ("sequence,s", "include k-mer sequence in output")
+      ("unique,u", "output only first hit for each unique k-mer")
       ;
     
     // Define hidden options
@@ -278,6 +287,10 @@ namespace rdxon {
     // K-mer sequence?
     if (vm.count("sequence")) c.includeSeq = true;
     else c.includeSeq = false;
+
+    // Unique k-mers only?
+    if (vm.count("unique")) c.firstHitOnly = true;
+    else c.firstHitOnly = false;
     
     // Check command line arguments
     if ((vm.count("help")) || (!vm.count("input-file"))) {
