@@ -145,7 +145,7 @@ namespace rdxon {
       ("maxrecur,s", boost::program_options::value<uint16_t>(&c.maxOccur)->default_value(500), "max. k-mer recurrence in FASTQ")
       ("kmerX,x", boost::program_options::value<boost::filesystem::path>(&c.kmerX), "k-mer.x map file")
       ("kmerY,y", boost::program_options::value<boost::filesystem::path>(&c.kmerY), "k-mer.y map file")
-      ("genome,g", boost::program_options::value<boost::filesystem::path>(&c.genome), "genome fasta file (only required for BAM input")
+      ("genome,g", boost::program_options::value<boost::filesystem::path>(&c.genome), "genome fasta file (only required for BAM input)")
       ("dump,u", boost::program_options::value<boost::filesystem::path>(&c.dumpfile), "gzipped output file for rare k-mers (optional)")
       ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("out.fq.gz"), "output file")
       ;

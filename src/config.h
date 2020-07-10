@@ -81,6 +81,7 @@ namespace rdxon {
     bool hasHashTable;
     bool includeSeq;
     bool firstHitOnly;
+    boost::filesystem::path genome;
     boost::filesystem::path outfile;
     boost::filesystem::path htable;
     boost::filesystem::path infile;
