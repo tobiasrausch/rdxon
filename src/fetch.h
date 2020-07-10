@@ -56,11 +56,57 @@ namespace rdxon {
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed: " << seqName << std::endl;
   }
 
+  template<typename TConfigStruct, typename TBitSet, typename THashSet>
+  inline bool
+  _extractHashedKmerFasta(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
+    // Data out
+    boost::iostreams::filtering_ostream dataOut;
+    dataOut.push(boost::iostreams::gzip_compressor());
+    dataOut.push(boost::iostreams::file_sink(c.outfile.string().c_str(), std::ios_base::out | std::ios_base::binary));
+    
+    // Open file
+    std::ifstream fafile(c.infile.string().c_str());
+    if (fafile.good()) {
+      std::string line;
+      std::string faname = "";
+      std::string tmpfasta = "";
+      while(std::getline(fafile, line)) {
+	if (!line.empty()) {
+	  if (line[0] == '>') {
+	    if (!faname.empty()) {
+	      _extractHashedKmer(dataOut, c, faname, tmpfasta, bitH1, bitH2, hs);
+	      // Reset
+	      tmpfasta = "";
+	      faname = "";
+	    }
+	    if (line.at(line.length() - 1) == '\r' ){
+	      faname = line.substr(1, line.length() - 2);
+	    } else {
+	      faname = line.substr(1);
+	    }
+	  } else {
+	    if (line.at(line.length() - 1) == '\r' ){
+	      tmpfasta += boost::to_upper_copy(line.substr(0, line.length() - 1));
+	    } else {
+	      tmpfasta += boost::to_upper_copy(line);
+	    }
+	  }
+	}
+      }
+      _extractHashedKmer(dataOut, c, faname, tmpfasta, bitH1, bitH2, hs);	  
+      fafile.close();
+    }
 
+    // Close output
+    dataOut.pop();
+    dataOut.pop();
+    
+    return true;
+  }
 
   template<typename TConfigStruct, typename TBitSet, typename THashSet>
   inline bool
-  _extractHashedKmer(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
+  _extractHashedKmerFastaGZ(TConfigStruct const& c, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
     // Data out
     boost::iostreams::filtering_ostream dataOut;
     dataOut.push(boost::iostreams::gzip_compressor());
@@ -158,7 +204,19 @@ namespace rdxon {
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Extract matching k-mers" << std::endl;
 
     // Extract hashed k-mers
-    _extractHashedKmer(c, bitH1, bitH2, hs);
+    if (!hs.empty()) {
+      bool filterRet = false;
+      //if (c.intype == 1) _extractHashedKmerFastqGZ(c, bitH1, bitH2, hs);
+      if (c.intype == 2) filterRet = _extractHashedKmerFastaGZ(c, bitH1, bitH2, hs);
+      else if (c.intype == 4) filterRet = _extractHashedKmerFasta(c, bitH1, bitH2, hs);
+      else {
+	std::cerr << "Unsupported file format!" << std::endl;
+      }
+      if (!filterRet) {
+	std::cerr << "Couldn't parse input files!" << std::endl;
+	return 1;
+      }
+    }
     
 #ifdef PROFILE
     ProfilerStop();
@@ -178,7 +236,7 @@ namespace rdxon {
     generic.add_options()
       ("help,?", "show help message")
       ("table,t", boost::program_options::value<boost::filesystem::path>(&c.htable), "gzipped, sorted hash table")
-      ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("out.fq.gz"), "output file")
+      ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("out.tsv.gz"), "output file")
       ;
     
     // Define hidden options
@@ -207,15 +265,21 @@ namespace rdxon {
     // Check command line arguments
     if ((vm.count("help")) || (!vm.count("input-file"))) {
       std::cout << std::endl;
-      std::cout << "Usage: rdxon " <<  argv[0] << " [OPTIONS] -h hash.table.gz <input.fa.gz>" << std::endl;
+      std::cout << "Usage: rdxon " <<  argv[0] << " [OPTIONS] -t hash.table.gz <input.fa.gz>" << std::endl;
       std::cout << visible_options << "\n";
       return 0;
     }
     
     // Check input files
     if (!(boost::filesystem::exists(c.infile) && boost::filesystem::is_regular_file(c.infile) && boost::filesystem::file_size(c.infile))) {
-      std::cerr << "Bgzip FASTA file is missing: " << c.infile.string() << std::endl;
+      std::cerr << "Input file is missing: " << c.infile.string() << std::endl;
       return 1;
+    } else {
+      c.intype = inputType(c.infile.string());
+      if (c.intype == -1) {
+	std::cerr << "Unrecognized input file format: " << c.infile.string() << std::endl;
+	return 1;
+      }
     }
     
     // Show cmd

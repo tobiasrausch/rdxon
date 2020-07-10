@@ -25,6 +25,7 @@ displayUsage() {
   std::cout << std::endl;
   std::cout << "    filter       filter FASTQ files for rare k-mers" << std::endl;
   std::cout << "    somatic      filter FASTQ files for rare and somatic k-mers" << std::endl;
+  std::cout << "    fetch        fetch k-mer hit positions in assemblies" << std::endl;
   std::cout << std::endl;
   std::cout << std::endl;
 }
