@@ -96,7 +96,8 @@ namespace rdxon {
 	      faname = "";
 	    }
 	    faname = line.substr(1);
-	    faname.erase(faname.find_first_of(" \n\r\t"));
+	    std::size_t found = faname.find_first_of(" \n\r\t");
+	    if (found != std::string::npos) faname.erase(found);
 	  } else {
 	    if (line.at(line.length() - 1) == '\r' ){
 	      tmpfasta += boost::to_upper_copy(line.substr(0, line.length() - 1));
@@ -144,7 +145,8 @@ namespace rdxon {
 	    faname = "";
 	  }
 	  faname = line.substr(1);
-	  faname.erase(faname.find_first_of(" \n\r\t"));
+	  std::size_t found = faname.find_first_of(" \n\r\t");
+	  if (found != std::string::npos) faname.erase(found);
 	} else {
 	  if (line.at(line.length() - 1) == '\r' ){
 	    tmpfasta += boost::to_upper_copy(line.substr(0, line.length() - 1));
