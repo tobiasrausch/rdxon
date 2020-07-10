@@ -115,7 +115,13 @@ namespace rdxon {
 	else {
 	  std::cerr << "Unsupported file format!" << std::endl;
 	}
-      } else filterRet = _filterForTheRarePE(c, bitH1, bitH2, hs);
+      } else {
+	if (c.intype == 1) {
+	  filterRet = _filterForTheRarePE(c, bitH1, bitH2, hs);
+	} else {
+	  std::cerr << "Paired-end mode is only supported for FASTQ.gz!" << std::endl;
+	}
+      }
       if (!filterRet) {
 	std::cerr << "Couldn't parse input files!" << std::endl;
 	return 1;

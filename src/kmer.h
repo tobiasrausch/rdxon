@@ -831,49 +831,10 @@ namespace rdxon
       else if (lcount % 4 == 3) {
 	bool filterSeq = true;
 	// Read1
-	if (avgQual(gline1) >= c.minQual) {
-	  std::string rcseq(seq1);
-	  reverseComplement(rcseq);
-	  uint32_t seqlen = seq1.size();
-	  for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
-	    std::string kmerStr = seq1.substr(pos, c.kmerLength);
-	    if (nContent(kmerStr)) continue;
-	    unsigned h1Raw = hash_string(kmerStr.c_str());
-	    unsigned h2Raw = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
-	    unsigned h1 = h1Raw;
-	    unsigned h2 = h2Raw;
-	    if (h1 > h2) {
-	      h1 = h2Raw;
-	      h2 = h1Raw;
-	    }
-	    if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
-	      filterSeq = false;
-	      break;
-	    }
-	  }
-	}
+	if (avgQual(gline1) >= c.minQual) filterSeq = _spotifyTheRare(c, seq1, gline1, bitH1, bitH2, hs);
 	// Read2
-	if ((filterSeq) && (avgQual(gline2) >= c.minQual)) {
-	  std::string rcseq(seq2);
-	  reverseComplement(rcseq);
-	  uint32_t seqlen = seq2.size();
-	  for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
-	    std::string kmerStr = seq2.substr(pos, c.kmerLength);
-	    if (nContent(kmerStr)) continue;
-	    unsigned h1Raw = hash_string(kmerStr.c_str());
-	    unsigned h2Raw = hash_string(rcseq.substr(seqlen - c.kmerLength - pos, c.kmerLength).c_str());
-	    unsigned h1 = h1Raw;
-	    unsigned h2 = h2Raw;
-	    if (h1 > h2) {
-	      h1 = h2Raw;
-	      h2 = h1Raw;
-	    }
-	    if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
-	      filterSeq = false;
-	      break;
-	    }
-	  }
-	}
+	if ((filterSeq) && (avgQual(gline2) >= c.minQual)) filterSeq = _spotifyTheRare(c, seq2, gline2, bitH1, bitH2, hs);
+	// Paired-end
 	if (filterSeq) ++filterCount;
 	else {
 	  ++passCount;
@@ -893,7 +854,6 @@ namespace rdxon
 	now = boost::posix_time::second_clock::local_time();
 	std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " read pairs." << std::endl;
       }
-      //if (lcount > RDXON_CHUNK_SIZE) break;
     }
     now = boost::posix_time::second_clock::local_time();
     std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed " << (lcount / 4) << " read pairs." << std::endl;
