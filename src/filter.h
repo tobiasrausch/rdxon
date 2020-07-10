@@ -96,9 +96,6 @@ namespace rdxon {
       std::cout << "Filtered k-mers (>max): " << filterKmerMax << std::endl;
       std::cout << "Passed hashed k-mers: " << passKmer << std::endl;
 
-      //if (h1Raw < h2Raw) { //for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) dumpOut << seq[i];
-      //} else { for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) dumpOut << cpl[(uint8_t) seq[i]];
-      
       // Close dump file
       if (c.hasDumpFile) {
 	dumpOut.pop();

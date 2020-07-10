@@ -415,15 +415,14 @@ namespace rdxon
       }
       if ((uint16_t) (aq /c.kmerLength) < c.minQual + 33) continue;
       if (nsum) continue;
-      unsigned h1Raw = 37;
-      for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) h1Raw = (h1Raw * 54059) ^ (seq[i] * 76963);
-      unsigned h2Raw = 37;
-      for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) h2Raw = (h2Raw * 54059) ^ (cpl[(uint8_t) seq[i]] * 76963);
-      unsigned h1 = h1Raw;
-      unsigned h2 = h2Raw;
+      unsigned h1 = 37;
+      for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) h1 = (h1 * 54059) ^ (seq[i] * 76963);
+      unsigned h2 = 37;
+      for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) h2 = (h2 * 54059) ^ (cpl[(uint8_t) seq[i]] * 76963);
       if (h1 > h2) {
-	h1 = h2Raw;
-	h2 = h1Raw;
+	unsigned tmp = h1;
+	h1 = h2;
+	h2 = tmp;
       }
       if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) return false;
     }
@@ -713,15 +712,14 @@ namespace rdxon
 	  }
 	  if ((uint16_t) (aq /c.kmerLength) < c.minQual) continue;
 	  if (nsum) continue;
-	  unsigned h1Raw = 37;
-	  for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) h1Raw = (h1Raw * 54059) ^ (seq[i] * 76963);
-	  unsigned h2Raw = 37;
-	  for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) h2Raw = (h2Raw * 54059) ^ (cpl[(uint8_t) seq[i]] * 76963);
-	  unsigned h1 = h1Raw;
-	  unsigned h2 = h2Raw;
+	  unsigned h1 = 37;
+	  for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) h1 = (h1 * 54059) ^ (seq[i] * 76963);
+	  unsigned h2 = 37;
+	  for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) h2 = (h2 * 54059) ^ (cpl[(uint8_t) seq[i]] * 76963);
 	  if (h1 > h2) {
-	    h1 = h2Raw;
-	    h2 = h1Raw;
+	    unsigned tmp = h1;
+	    h1 = h2;
+	    h2 = tmp;
 	  }
 	  if ((bitH1[h1]) && (bitH2[h2]) && (hs.find(std::make_pair(h1, h2)) != hs.end())) {
 	    filterSeq = false;

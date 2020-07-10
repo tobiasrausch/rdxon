@@ -79,6 +79,7 @@ namespace rdxon {
     uint16_t kmerLength;
     int32_t intype;
     bool hasHashTable;
+    bool includeSeq;
     boost::filesystem::path outfile;
     boost::filesystem::path htable;
     boost::filesystem::path infile;

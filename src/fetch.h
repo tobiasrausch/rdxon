@@ -32,28 +32,44 @@ namespace rdxon {
   template<typename TStream, typename TConfigStruct, typename TBitSet, typename THashSet>
   inline void
   _extractHashedKmer(TStream& dataOut, TConfigStruct const& c, std::string const& seqName, std::string const& seq, TBitSet const& bitH1, TBitSet const& bitH2, THashSet const& hs) {
-    uint32_t seqlen = seq.size();
-    for (uint32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
-      std::string kmerStr = seq.substr(pos, c.kmerLength);
-      if (nContent(kmerStr)) continue;
-      unsigned h1 = hash_string(kmerStr.c_str());
-      reverseComplement(kmerStr);
-      unsigned h2 = hash_string(kmerStr.c_str());
+    int32_t seqlen = seq.size();
+    uint32_t nsum = 0;
+    for (int32_t pos = 0; ((pos < c.kmerLength) && (pos < seqlen)); ++pos) {
+      if (seq[pos] == 'N') ++nsum;
+    }
+    for (int32_t pos = 0; pos + c.kmerLength <= seqlen; ++pos) {
+      if (pos) {
+	if (seq[pos - 1] == 'N') --nsum;
+	if (seq[pos + c.kmerLength - 1] == 'N') ++nsum;
+      }
+      if (nsum) continue;
+      unsigned h1Raw = 37;
+      for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) h1Raw = (h1Raw * 54059) ^ (seq[i] * 76963);
+      unsigned h2Raw = 37;
+      for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) h2Raw = (h2Raw * 54059) ^ (cpl[(uint8_t) seq[i]] * 76963);
+      unsigned h1 = h1Raw;
+      unsigned h2 = h2Raw;
       if (h1 > h2) {
-	unsigned tmp = h1;
-	h1 = h2;
-	h2 = tmp;
+	h1 = h2Raw;
+	h2 = h1Raw;
       }
       if ((bitH1[h1]) && (bitH2[h2])) {
 	typename THashSet::const_iterator it = std::lower_bound(hs.begin(), hs.end(), std::make_pair(h1, h2));
 	if ((it->first == h1) && (it->second == h2)) {
-	  //dataOut << h1 << '\t' << h2 << '\t' << seqName << ':' << (pos + 1) << '-' << (pos + c.kmerLength) << std::endl;
-	  dataOut << h1 << '\t' << h2 << '\t' << seqName << ':' << (pos + 1) << std::endl;
+	  //dataOut << h1 << '\t' << h2 << '\t' << seqName << ':' << (pos + 1) << '-' << (pos + c.kmerLength);
+	  dataOut << h1 << '\t' << h2 << '\t' << seqName << ':' << (pos + 1);
+	  if (c.includeSeq) {
+	    dataOut << '\t';
+	    if (h1Raw < h2Raw) {
+	      for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) dataOut << seq[i];
+	    } else {
+	      for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) dataOut << cpl[(uint8_t) seq[i]];
+	    }
+	  }
+	  dataOut << std::endl;
 	}
       }
     }
-    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-    std::cout << '[' << boost::posix_time::to_simple_string(now) << "] Processed: " << seqName << std::endl;
   }
 
   template<typename TConfigStruct, typename TBitSet, typename THashSet>
@@ -79,11 +95,8 @@ namespace rdxon {
 	      tmpfasta = "";
 	      faname = "";
 	    }
-	    if (line.at(line.length() - 1) == '\r' ){
-	      faname = line.substr(1, line.length() - 2);
-	    } else {
-	      faname = line.substr(1);
-	    }
+	    faname = line.substr(1);
+	    faname.erase(faname.find_first_of(" \n\r\t"));
 	  } else {
 	    if (line.at(line.length() - 1) == '\r' ){
 	      tmpfasta += boost::to_upper_copy(line.substr(0, line.length() - 1));
@@ -130,11 +143,8 @@ namespace rdxon {
 	    tmpfasta = "";
 	    faname = "";
 	  }
-	  if (line.at(line.length() - 1) == '\r' ){
-	    faname = line.substr(1, line.length() - 2);
-	  } else {
-	    faname = line.substr(1);
-	  }
+	  faname = line.substr(1);
+	  faname.erase(faname.find_first_of(" \n\r\t"));
 	} else {
 	  if (line.at(line.length() - 1) == '\r' ){
 	    tmpfasta += boost::to_upper_copy(line.substr(0, line.length() - 1));
@@ -237,6 +247,7 @@ namespace rdxon {
       ("help,?", "show help message")
       ("table,t", boost::program_options::value<boost::filesystem::path>(&c.htable), "gzipped, sorted hash table")
       ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("out.tsv.gz"), "output file")
+      ("sequence,s", "include k-mer sequence in output")
       ;
     
     // Define hidden options
@@ -261,6 +272,10 @@ namespace rdxon {
     // Hash table present?
     if (vm.count("table")) c.hasHashTable = true;
     else c.hasHashTable = false;
+
+    // K-mer sequence?
+    if (vm.count("sequence")) c.includeSeq = true;
+    else c.includeSeq = false;
     
     // Check command line arguments
     if ((vm.count("help")) || (!vm.count("input-file"))) {
