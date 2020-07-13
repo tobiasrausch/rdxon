@@ -731,10 +731,14 @@ namespace rdxon
 	  ++passCount;
 	  // Output FASTQ (read1 or read2)
 	  std::string rname = bam_get_qname(rec);
-	  if (rec->core.flag & BAM_FREVERSE) reverseComplement(seq);
 	  if (rec->core.flag & BAM_FREAD2) {
 	    dataOut << "@" << rname << "R2" << std::endl;
-	    dataOut << seq << std::endl;
+	    if (rec->core.flag & BAM_FREVERSE) {
+	      for(int32_t i = rec->core.l_qseq - 1; i>=0; --i) dataOut << cpl[(uint8_t) seq[i]];
+	      dataOut << std::endl;
+	    } else {
+	      dataOut << seq << std::endl;
+	    }
 	    dataOut << "+" << std::endl;
 	    if (rec->core.flag & BAM_FREVERSE) {
 	      for (int32_t i = rec->core.l_qseq - 1; i>=0; --i) dataOut << boost::lexical_cast<char>((uint8_t) (qualptr[i] + 33));
@@ -744,7 +748,12 @@ namespace rdxon
 	    dataOut << std::endl;
 	  } else {
 	    dataOut << "@" << rname << "R1" << std::endl;
-	    dataOut << seq << std::endl;
+	    if (rec->core.flag & BAM_FREVERSE) {
+	      for(int32_t i = rec->core.l_qseq - 1; i>=0; --i) dataOut << cpl[(uint8_t) seq[i]];
+	      dataOut << std::endl;
+	    } else {
+	      dataOut << seq << std::endl;
+	    }
 	    dataOut << "+" << std::endl;
 	    if (rec->core.flag & BAM_FREVERSE) {
 	      for (int32_t i = rec->core.l_qseq - 1; i>=0; --i) dataOut << boost::lexical_cast<char>((uint8_t) (qualptr[i] + 33));
