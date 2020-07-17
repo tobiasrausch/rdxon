@@ -44,16 +44,19 @@ namespace rdxon {
     
     FilterConfig(SomaticConfig const& sc, bool const germ) {
       minFreq = sc.minFreq;
-      minQual = sc.minQual;      
+      minQual = sc.minQual;
+      maxOccur = sc.maxOccur;
       kmerLength = sc.kmerLength;
       hasKmerTable = sc.hasKmerTable;
       hasDumpFile = sc.hasDumpFile;
       outfile = sc.outfile;
+      genome = sc.genome;
       kmerdb = sc.kmerdb;
       kmerX = sc.kmerX;
       kmerY = sc.kmerY;
       dumpfile = sc.dumpfile;
-
+      intype = sc.intype;
+      
       if (germ) {
 	// Germline
 	minOccur = sc.minControlOccur;

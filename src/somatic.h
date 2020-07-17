@@ -91,7 +91,7 @@ namespace rdxon {
 	  bool somaticKmer = true;
 	  typename THashMap::iterator git = germHp.find(it->first);
 	  if (git != germHp.end()) {
-	    if (git->second < c.minControlOccur) {
+	    if (git->second >= c.minControlOccur) {
 	      ++filterKmerControl;
 	      somaticKmer = false;
 	    }
