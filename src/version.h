@@ -5,7 +5,7 @@ namespace rdxon
 {
 
 
-  std::string rdxonVersionNumber = "0.2.5";
+  std::string rdxonVersionNumber = "0.2.6";
 
   inline 
     void printTitle(std::string const& title) 
