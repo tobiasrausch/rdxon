@@ -64,11 +64,17 @@ namespace rdxon {
 	  //dataOut << h1 << '\t' << h2 << '\t' << seqName << ':' << (pos + 1) << '-' << (pos + c.kmerLength);
 	  dataOut << h1 << '\t' << h2 << '\t' << seqName << ':' << (pos + 1);
 	  if (c.includeSeq) {
-	    dataOut << '\t';
-	    if (h1Raw < h2Raw) {
-	      for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) dataOut << seq[i];
+	    if (c.includeSeq == 2) {
+	      // Entire sequence that contains the k-mer
+	      dataOut << '\t' << seq;
 	    } else {
-	      for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) dataOut << cpl[(uint8_t) seq[i]];
+	      // Only k-mer sequence
+	      dataOut << '\t';
+	      if (h1Raw < h2Raw) {
+		for(int32_t i = pos; (i < (pos+c.kmerLength)); ++i) dataOut << seq[i];
+	      } else {
+		for(int32_t i = pos+c.kmerLength-1; i>=(int32_t)pos; --i) dataOut << cpl[(uint8_t) seq[i]];
+	      }
 	    }
 	  }
 	  dataOut << std::endl;
@@ -383,7 +389,7 @@ namespace rdxon {
       ("table,t", boost::program_options::value<boost::filesystem::path>(&c.htable), "gzipped, sorted hash table")
       ("genome,g", boost::program_options::value<boost::filesystem::path>(&c.genome), "genome fasta file (only required for BAM input)")
       ("output,o", boost::program_options::value<boost::filesystem::path>(&c.outfile)->default_value("out.tsv.gz"), "output file")
-      ("sequence,s", "include k-mer sequence in output")
+      ("sequence,s", boost::program_options::value<uint16_t>(&c.includeSeq)->default_value(0), "include sequence [0: off, 1: k-mer, 2: entire sequence]")
       ("unique,u", "output only first hit for each unique k-mer")
       ;
     
@@ -409,10 +415,6 @@ namespace rdxon {
     // Hash table present?
     if (vm.count("table")) c.hasHashTable = true;
     else c.hasHashTable = false;
-
-    // K-mer sequence?
-    if (vm.count("sequence")) c.includeSeq = true;
-    else c.includeSeq = false;
 
     // Unique k-mers only?
     if (vm.count("unique")) c.firstHitOnly = true;

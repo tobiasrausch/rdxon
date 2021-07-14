@@ -82,9 +82,9 @@ namespace rdxon {
 
   struct FetchConfig {
     uint16_t kmerLength;
+    uint16_t includeSeq;
     int32_t intype;
     bool hasHashTable;
-    bool includeSeq;
     bool firstHitOnly;
     boost::filesystem::path genome;
     boost::filesystem::path outfile;
