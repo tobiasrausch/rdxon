@@ -19,6 +19,7 @@
 #include <boost/progress.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/dynamic_bitset/serialization.hpp>
+#include <boost/serialization/vector.hpp>
 #include <boost/serialization/bitset.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
