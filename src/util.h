@@ -40,44 +40,63 @@ namespace rdxon
     240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255
   };
 
+  inline bool
+  is_gz(std::string const& f) {
+    std::ifstream bfile(f.c_str(), std::ios_base::binary | std::ios::ate);
+    bfile.seekg(0, std::ios::beg);
+    char byte1;
+    bfile.read(&byte1, 1);
+    char byte2;
+    bfile.read(&byte2, 1);
+    bfile.close();
+    if ((byte1 == '\x1F') && (byte2 == '\x8B')) return true;
+    else return false;
+  }
+
+  inline int32_t     // -1: failure, 0: bam, 1: gzipped fastq, 2: fastq file
+  fafqtype(std::string const& path) {
+    std::ifstream file(path.c_str(), std::ios_base::in | std::ios_base::binary);
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> dataIn;
+    dataIn.push(boost::iostreams::gzip_decompressor());
+    dataIn.push(file);
+    std::istream instream(&dataIn);
+    std::string gline;
+    int32_t retVal = -1;
+    if(std::getline(instream, gline)) {
+      if ((gline.size()) && (gline[0] == '@')) retVal = 1; // Gzipped FASTQ
+      else if ((gline.size()) && (gline[0] == '>')) retVal = 2; // Gzipped FASTA
+    }
+    dataIn.pop();
+    dataIn.pop();
+    file.close();	
+    return retVal;
+  }
+
   inline int32_t     // -1: failure, 0: bam, 1: gzipped fastq, 2: fastq file
   inputType(std::string const& path) {
-    std::ifstream ifile(path.c_str(), std::ios::binary | std::ios::in);
-    if (ifile.is_open()) {
-      char fcode[4];
-      ifile.seekg(0);
-      ifile.read(fcode, 4);
-      ifile.close();
-      bool inputBam = false;
-      samFile* samfile = sam_open(path.c_str(), "r");
-      if (samfile != NULL) {
-	bam_hdr_t* hdr = sam_hdr_read(samfile);
-	if (hdr != NULL) {
-	  inputBam = true;
-	  bam_hdr_destroy(hdr);
+    if (is_gz(path)) {
+      return fafqtype(path);
+    } else {
+      std::ifstream ifile(path.c_str(), std::ios::binary | std::ios::in);
+      if (ifile.is_open()) {
+	char fcode[4];
+	ifile.seekg(0);
+	ifile.read(fcode, 4);
+	ifile.close();
+	bool inputBam = false;
+	samFile* samfile = sam_open(path.c_str(), "r");
+	if (samfile != NULL) {
+	  bam_hdr_t* hdr = sam_hdr_read(samfile);
+	  if (hdr != NULL) {
+	    inputBam = true;
+	    bam_hdr_destroy(hdr);
+	  }
+	  sam_close(samfile);
 	}
-	sam_close(samfile);
+	if (inputBam) return 0; // Bam
+	else if (fcode[0] == '@') return 3; // Fastq file
+	else if (fcode[0] == '>') return 4; // Fasta file
       }
-      if (inputBam) return 0; // Bam
-      else if (((uint8_t)fcode[0] == (uint8_t)0x1f) && ((uint8_t)fcode[1] == (uint8_t)0x8b)) {
-	std::ifstream file(path.c_str(), std::ios_base::in | std::ios_base::binary);
-	boost::iostreams::filtering_streambuf<boost::iostreams::input> dataIn;
-	dataIn.push(boost::iostreams::gzip_decompressor());
-	dataIn.push(file);
-	std::istream instream(&dataIn);
-	std::string gline;
-	int32_t retVal = -1;
-	while(std::getline(instream, gline)) {
-	  if ((gline.size()) && (gline[0] == '@')) retVal = 1; // Gzipped FASTQ
-	  else if ((gline.size()) && (gline[0] == '>')) retVal = 2; // Gzipped FASTA
-	}
-	dataIn.pop();
-	dataIn.pop();
-	file.close();	
-	return retVal;
-      }
-      else if (fcode[0] == '@') return 3; // Fastq file
-      else if (fcode[0] == '>') return 4; // Fasta file
     }
     return -1;
   }
