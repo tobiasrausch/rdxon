@@ -1,5 +1,5 @@
 # use the ubuntu base image
-FROM ubuntu:18.04
+FROM ubuntu:22.04
 
 MAINTAINER Tobias Rausch rausch@embl.de
 
@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     libboost-system-dev \
     libboost-filesystem-dev \
     libboost-iostreams-dev \
+    libdeflate-dev \
     libboost-serialization-dev \
     libbz2-dev \
     libhdf5-dev \
