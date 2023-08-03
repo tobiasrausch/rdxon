@@ -23,7 +23,7 @@ or as a minimal [Docker container](https://hub.docker.com/r/trausch/rdxon/).
 
 # 1000 Genomes k-mer map
 
-Download the 1000 Genomes k-mer maps here: [http://gear.embl.de/data/rdxon/](http://gear.embl.de/data/rdxon/)
+Download the 1000 Genomes k-mer maps here: [http://gear-genomics.embl.de/data/rdxon/](http://gear-genomics.embl.de/data/rdxon/)
 
 # Running
 
